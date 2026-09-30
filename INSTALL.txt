@@ -1,0 +1,27 @@
+Tiny Tale local login startup fix v2
+
+1. Stop both Tiny Tale server windows with Ctrl+C, then close them.
+2. Copy all FIVE code files from this fix into your existing tiny-tale folder:
+   app.py, runtime_config.py, run_local.py, start-admin.bat, start-store.bat.
+   Replace the existing files when asked.
+   Do not remove .env, .venv, instance or static; no database migration is needed.
+3. Double-click start-admin.bat.
+   It should show "Tiny Tale startup fix v2" and "Admin password configured: True".
+   If no password was loaded, it asks for a password. Typing is hidden; press Enter.
+4. Open the NEW admin address: http://127.0.0.1:5002
+   Do not use the old 5001 address for this fixed launcher.
+5. Sign in using your .env password, or the password entered in the terminal prompt.
+6. Customer store: start-store.bat and http://127.0.0.1:5000
+
+This fix loads .env beside app.py explicitly, supports UTF-8/BOM and UTF-16
+Notepad files, preserves literal password characters, and uses separate cookie
+names for the store/admin. A missing local password triggers a hidden prompt.
+No password is included in this patch or printed in startup diagnostics.
+On Render, environment variables keep priority; use gunicorn as documented.
+
+If it still fails, open http://127.0.0.1:5002/health and send its text together
+with the startup window (no passwords). The health response should show
+version "startup-fix-v2" and admin_password_configured true.
+
+The exact cause on your computer has not yet been confirmed. The changed
+port avoids connecting to an older server still running on 5001.
