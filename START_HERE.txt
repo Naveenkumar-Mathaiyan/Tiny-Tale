@@ -1,0 +1,44 @@
+Tiny Tale 2.1 — merged update
+
+1. Close both locally running Tiny Tale application windows.
+2. Extract this entire ZIP into a temporary folder, such as Downloads\Tiny_Tale_Merged_Update.
+3. Double-click APPLY-UPDATE.bat next to this file.
+   It defaults to your existing repository:
+   C:\Users\NaveenkumarMathaiya\Downloads\Tiny_Tale_Login_Fix
+   If the displayed folder is correct, press Enter. Otherwise enter your actual repository path.
+   This copies application files only. It does not delete files, replace your .git/.env/.venv/instance, run Git or deploy.
+4. Wait for "Update copied successfully".
+5. Open Command Prompt and run these commands:
+
+cd /d "C:\Users\NaveenkumarMathaiya\Downloads\Tiny_Tale_Login_Fix"
+git status
+git add app.py static tests README.md UPGRADE.md VERIFICATION.md INSTALL.txt START_HERE.txt MERGE_REPORT.md .gitignore .env.example render.yaml requirements.txt runtime_config.py run_local.py start-admin.bat start-store.bat
+git diff --cached --stat
+git commit -m "Update Tiny Tale size inventory and admin alerts"
+git push origin main
+
+Use your actual repository path if different. Do not run git init or create another repository.
+
+6. Render: deploy the latest commit on BOTH EXISTING services (tiny-tale-store and tiny-tale-admin).
+   If automatic deployment is enabled, wait for both to finish. Otherwise use Manual Deploy > Deploy latest commit.
+   Keep the existing database and environment variables. Do not create another Blueprint or database.
+7. Check /health on both URLs: version should be 2.1-size-inventory.
+8. Hard-refresh both pages with Ctrl+F5.
+9. Admin > Products & stock > Edit: enable your actual age sizes and distribute actual quantities.
+   Existing total stock remains under One size. Disable One size after distribution to avoid double counting.
+
+Local launch: use the existing start-store.bat and start-admin.bat.
+Customer local URL: http://127.0.0.1:5000
+Admin local URL: http://127.0.0.1:5002
+The launcher still displays its older startup-fix label; /health identifies the updated application version.
+
+If you prefer manual copying: copy ALL CONTENTS of the bundled Tiny_Tale_Login_Fix folder into your existing
+repository folder and replace matching files. Do not copy the outer folder inside your existing repository.
+Keep the original folder in place. Do not delete or rename it.
+
+Included: updated size-stock application, your original Render settings, requirements, startup scripts and images.
+Not bundled: passwords/settings in .env, your Git history, virtual environment or customer database.
+Those remain on your computer because the update copies into the existing folder.
+
+Back up your database before the deployment. Existing saved enquiries without a size use One size;
+review them before disabling that size. This update does not implement the other earlier wishlist features.

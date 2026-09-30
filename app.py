@@ -3,7 +3,7 @@ from datetime import datetime, timedelta, timezone
 from functools import wraps
 from flask import Flask, request, jsonify, session, send_from_directory, abort
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import select, func
+from sqlalchemy import select, func, text
 from werkzeug.security import generate_password_hash, check_password_hash
 from PIL import Image
 from pathlib import Path
@@ -17,7 +17,25 @@ if os.getenv('RENDER') and (not os.getenv('SECRET_KEY') or not os.getenv('DATABA
 db = SQLAlchemy(app)
 class Product(db.Model):
  id=db.Column(db.String(36),primary_key=True); name=db.Column(db.String(100),nullable=False); category=db.Column(db.String(40)); description=db.Column(db.String(500)); price=db.Column(db.Integer,nullable=False); sale=db.Column(db.Integer,nullable=False); stock=db.Column(db.Integer,default=20); image=db.Column(db.Text); active=db.Column(db.Boolean,default=True)
- def data(self): return {k:getattr(self,k) for k in ('id','name','category','description','price','sale','stock','image','active')}
+ def data(self,private=False):
+  result={k:getattr(self,k) for k in ('id','name','category','description','price','sale','stock','image','active')}
+  result['sizes']=[]
+  for v in db.session.scalars(select(ProductSize).where(ProductSize.product_id==self.id).order_by(ProductSize.position)):
+   if not private and not v.enabled: continue
+   row=dict(size=v.size,stock=v.stock,enabled=v.enabled,availability='Available' if v.stock>0 else 'Restock soon')
+   if private: row['low_stock']=v.enabled and v.stock<5
+   result['sizes'].append(row)
+  return result
+SIZE_OPTIONS=['0–3 months','3–6 months','6–9 months','9–12 months','One size']
+class ProductSize(db.Model):
+ product_id=db.Column(db.String(36),db.ForeignKey('product.id'),primary_key=True)
+ size=db.Column(db.String(30),primary_key=True)
+ stock=db.Column(db.Integer,nullable=False,default=0)
+ enabled=db.Column(db.Boolean,nullable=False,default=True)
+ position=db.Column(db.Integer,default=0)
+def sync_stock(p):
+ db.session.flush()
+ p.stock=sum(v.stock for v in db.session.scalars(select(ProductSize).where(ProductSize.product_id==p.id,ProductSize.enabled==True)))
 class Media(db.Model):
  id=db.Column(db.String(36),primary_key=True); content=db.Column(db.Text,nullable=False)
 class Event(db.Model):
@@ -30,22 +48,32 @@ class Coupon(db.Model):
 class Attempt(db.Model):
  key=db.Column(db.String(64),primary_key=True); count=db.Column(db.Integer,default=0); started=db.Column(db.DateTime,default=datetime.utcnow)
 with app.app_context():
- db.create_all()
- # Same seed IDs on both services; conflicts during startup safely retry.
- names=['Front Open Jabla','Knot Jabla','Side Open Jabla','Bib','Nappies','Mittens','Cap','Booties','Bath Towel','Swaddle','Quilt Bed Spread']
- for i,n in enumerate(names):
-  if not db.session.get(Product,str(i+1)):
-   db.session.add(Product(id=str(i+1),name=n,category='Jablas' if i<3 else 'Bath & Sleep' if i>7 else 'Accessories',description='A gentle everyday essential for your little one. Demo item; confirm fabric, fit and care with us before ordering.',price=[349,299,329,199,249,149,199,199,599,449,999][i],sale=[279,239,259,149,199,119,159,159,479,359,799][i],stock=25,image=f'/static/images/product-{i}.png'))
- for code,p,m in [('TINY10',10,0),('BABY15',15,1500)]:
-  if not db.session.get(Coupon,code): db.session.add(Coupon(code=code,percent=p,minimum=m))
- try: db.session.commit()
- except Exception:
-  db.session.rollback()
-  if db.session.scalar(select(func.count()).select_from(Product))<11: raise
+ guard=db.engine.connect() if db.engine.dialect.name=='postgresql' else None
+ try:
+  if guard: guard.execute(text('SELECT pg_advisory_lock(846301)'))
+  db.create_all()
+  # Same seed IDs on both services; conflicts during startup safely retry.
+  names=['Front Open Jabla','Knot Jabla','Side Open Jabla','Bib','Nappies','Mittens','Cap','Booties','Bath Towel','Swaddle','Quilt Bed Spread']
+  for i,n in enumerate(names):
+   if not db.session.get(Product,str(i+1)):
+    db.session.add(Product(id=str(i+1),name=n,category='Jablas' if i<3 else 'Bath & Sleep' if i>7 else 'Accessories',description='A gentle everyday essential for your little one. Demo item; confirm fabric, fit and care with us before ordering.',price=[349,299,329,199,249,149,199,199,599,449,999][i],sale=[279,239,259,149,199,119,159,159,479,359,799][i],stock=25,image=f'/static/images/product-{i}.png'))
+  for code,p,m in [('TINY10',10,0),('BABY15',15,1500)]:
+   if not db.session.get(Coupon,code): db.session.add(Coupon(code=code,percent=p,minimum=m))
+  try: db.session.commit()
+  except Exception:
+   db.session.rollback()
+   if db.session.scalar(select(func.count()).select_from(Product))<11: raise
+  for p in db.session.scalars(select(Product)):
+   if not db.session.scalar(select(ProductSize).where(ProductSize.product_id==p.id)):
+    db.session.add(ProductSize(product_id=p.id,size='One size',stock=p.stock,enabled=True,position=4))
+  db.session.commit()
+ finally:
+  if guard:
+   guard.execute(text('SELECT pg_advisory_unlock(846301)')); guard.close()
 @app.after_request
 def headers(r):
  r.headers['X-Content-Type-Options']='nosniff'; r.headers['X-Frame-Options']='DENY'; r.headers['Referrer-Policy']='strict-origin-when-cross-origin'
- if request.path.startswith('/api/admin'): r.headers['Cache-Control']='no-store'
+ if request.path.startswith('/api/'): r.headers['Cache-Control']='no-store'
  return r
 @app.errorhandler(400)
 @app.errorhandler(404)
@@ -54,7 +82,7 @@ def err(e): return jsonify(error=str(e.description)),e.code
 @app.route('/')
 def home(): return send_from_directory('static','admin.html' if ROLE=='admin' else 'index.html')
 @app.get('/health')
-def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='startup-fix-v2',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
+def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='2.1-size-inventory',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
 def admin(fn):
  @wraps(fn)
  def wrapped(*a,**k):
@@ -88,17 +116,29 @@ def products(): return jsonify([p.data() for p in db.session.scalars(select(Prod
 @app.route('/api/admin/products',methods=['GET','POST'])
 @admin
 def manage_products():
- if request.method=='GET': return jsonify([p.data() for p in db.session.scalars(select(Product).order_by(Product.name))])
+ if request.method=='GET': return jsonify([p.data(private=True) for p in db.session.scalars(select(Product).order_by(Product.name))])
  d=request.get_json() or {}
  try:
-  name=str(d['name']).strip(); price=int(d['price']); sale=int(d['sale']); stock=int(d['stock']); image=str(d.get('image',''))
+  name=str(d['name']).strip(); price=int(d['price']); sale=int(d['sale']); stock=0; image=str(d.get('image',''))
+  sizes=d['sizes']
+  if not isinstance(sizes,list) or not 1<=len(sizes)<=5: raise ValueError()
+  seen=set()
+  for v in sizes:
+   if v.get('size') not in SIZE_OPTIONS or v['size'] in seen or type(v.get('stock')) is not int or not 0<=v['stock']<=100000 or type(v.get('enabled',True)) is not bool: raise ValueError()
+   seen.add(v['size'])
+  if not any(v.get('enabled',True) for v in sizes): raise ValueError()
   if not name or len(name)>100 or price<1 or not 0<sale<=price or stock<0 or stock>100000 or price>1000000: raise ValueError()
   if not (image.startswith('/static/images/') or re.fullmatch(r'/media/[a-f0-9-]+',image)): raise ValueError('Upload an image first')
  except (KeyError,ValueError,TypeError) as e: return jsonify(error='Enter valid name, prices, stock and an uploaded image.'),400
- p=db.session.get(Product,d.get('id')) if d.get('id') else Product(id=str(uuid.uuid4()))
+ p=db.session.scalar(select(Product).where(Product.id==d.get('id')).with_for_update()) if d.get('id') else Product(id=str(uuid.uuid4()))
  if p is None: abort(404)
  for k,v in dict(name=name,price=price,sale=sale,stock=stock,image=image,category=str(d.get('category','Accessories'))[:40],description=str(d.get('description',''))[:500],active=bool(d.get('active',True))).items(): setattr(p,k,v)
- db.session.add(p); db.session.commit(); return jsonify(p.data())
+ db.session.add(p); db.session.flush()
+ for old in db.session.scalars(select(ProductSize).where(ProductSize.product_id==p.id)): old.enabled=False
+ for v in sizes:
+  row=db.session.get(ProductSize,(p.id,v['size'])) or ProductSize(product_id=p.id,size=v['size'])
+  row.stock=v['stock']; row.enabled=v.get('enabled',True); row.position=SIZE_OPTIONS.index(v['size']); db.session.add(row)
+ sync_stock(p); db.session.commit(); return jsonify(p.data(private=True))
 @app.post('/api/admin/upload')
 @admin
 def upload():
@@ -116,12 +156,14 @@ def quote(d,lock=False):
  if not isinstance(d.get('items'),list) or not 1<=len(d['items'])<=50: raise ValueError('Your cart is empty')
  for item in d['items']:
   pid=str(item.get('id','')); q=int(item.get('qty',0))
-  if pid in seen: raise ValueError('Duplicate cart item')
-  seen.add(pid); stmt=select(Product).where(Product.id==pid)
+  size=str(item.get('size','')); key=(pid,size)
+  if key in seen: raise ValueError('Duplicate cart item')
+  seen.add(key); stmt=select(Product).where(Product.id==pid)
   if lock: stmt=stmt.with_for_update()
   p=db.session.scalar(stmt)
-  if not p or not p.active or q<1 or q>p.stock: raise ValueError('An item is unavailable or exceeds stock. Refresh your cart.')
-  lines.append(dict(id=p.id,name=p.name,qty=q,price=p.sale)); subtotal+=p.sale*q
+  v=db.session.get(ProductSize,(pid,size))
+  if not p or not p.active or not v or not v.enabled or q<1 or q>v.stock: raise ValueError('An item is unavailable or exceeds stock. Refresh your cart.')
+  lines.append(dict(id=p.id,name=p.name,size=size,qty=q,price=p.sale)); subtotal+=p.sale*q
  code=str(d.get('coupon','')).strip().upper(); discount=0
  if code:
   c=db.session.get(Coupon,code)
@@ -150,15 +192,14 @@ def orders():
  if not o: abort(404)
  status=d.get('status'); allowed={'Enquiry':['Confirmed','Cancelled'],'Confirmed':['Shipped','Cancelled'],'Shipped':['Delivered'],'Delivered':[],'Cancelled':[]}
  if status not in allowed.get(o.status,[]): return jsonify(error='Invalid status change'),400
- if status=='Confirmed':
-  for item in sorted(o.items,key=lambda x:x['id']):
+ if status=='Confirmed' or (status=='Cancelled' and o.status=='Confirmed'):
+  for item in sorted(o.items,key=lambda x:(x['id'],x.get('size','One size'))):
    p=db.session.scalar(select(Product).where(Product.id==item['id']).with_for_update())
-   if not p or p.stock<item['qty']: db.session.rollback(); return jsonify(error='Insufficient stock to confirm'),409
-   p.stock-=item['qty']
- if status=='Cancelled' and o.status=='Confirmed':
-  for item in o.items:
-   p=db.session.get(Product,item['id'])
-   if p: p.stock+=item['qty']
+   v=db.session.scalar(select(ProductSize).where(ProductSize.product_id==item['id'],ProductSize.size==item.get('size','One size')).with_for_update())
+   if not p or not v or (status=='Confirmed' and (not p.active or not v.enabled or v.stock<item['qty'])):
+    db.session.rollback(); return jsonify(error='Insufficient stock for the ordered size. Review the enquiry.'),409
+   v.stock+=item['qty'] if status=='Cancelled' else -item['qty']
+   sync_stock(p)
  o.status=status; db.session.commit(); return jsonify(o.data())
 @app.route('/api/admin/coupons',methods=['GET','POST'])
 @admin
@@ -196,5 +237,5 @@ def analytics():
   else: stmt=stmt.where(Event.kind=='visit')
   return [{'label':a or 'Unknown','count':b} for a,b in db.session.execute(stmt.group_by(col).order_by(func.count().desc()).limit(20))]
  rows=list(db.session.scalars(select(Order).where(Order.created>=since))); confirmed=[o for o in rows if o.status in ['Confirmed','Shipped','Delivered']]
- return jsonify(days=days,sessions=db.session.scalar(select(func.count(func.distinct(Event.sid))).where(Event.created>=since)),events=[{'label':a,'count':b} for a,b in db.session.execute(select(Event.kind,func.count()).where(Event.created>=since).group_by(Event.kind))],products=group(Event.value,'view'),searches=group(Event.value,'search'),devices=group(Event.device),browsers=group(Event.browser),systems=group(Event.os),sources=group(Event.source),enquiries=len(rows),confirmed=len(confirmed),revenue=sum(o.total for o in confirmed),low_stock=[p.data() for p in db.session.scalars(select(Product).where(Product.stock<6,Product.active==True))])
+ return jsonify(days=days,sessions=db.session.scalar(select(func.count(func.distinct(Event.sid))).where(Event.created>=since)),events=[{'label':a,'count':b} for a,b in db.session.execute(select(Event.kind,func.count()).where(Event.created>=since).group_by(Event.kind))],products=group(Event.value,'view'),searches=group(Event.value,'search'),devices=group(Event.device),browsers=group(Event.browser),systems=group(Event.os),sources=group(Event.source),enquiries=len(rows),confirmed=len(confirmed),revenue=sum(o.total for o in confirmed),low_stock=[dict(id=p.id,name=p.name,size=v.size,stock=v.stock,status='Out of stock' if v.stock==0 else 'Low stock') for p,v in db.session.execute(select(Product,ProductSize).join(ProductSize).where(Product.active==True,ProductSize.enabled==True,ProductSize.stock<5).order_by(Product.name,ProductSize.position))])
 if __name__=='__main__': app.run(host='127.0.0.1',port=int(os.getenv('PORT','5000')))
