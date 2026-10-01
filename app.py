@@ -14,6 +14,9 @@ app = Flask(__name__, static_folder='static')
 app.config['SESSION_COOKIE_NAME'] = 'tiny_tale_admin' if ROLE == 'admin' else 'tiny_tale_store'
 app.config.update(SECRET_KEY=os.getenv('SECRET_KEY') or secrets.token_hex(32), SQLALCHEMY_DATABASE_URI=os.getenv('DATABASE_URL','sqlite:///tiny-tale.db').replace('postgres://','postgresql+psycopg://').replace('postgresql://','postgresql+psycopg://'), MAX_CONTENT_LENGTH=6*1024*1024, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE='Strict', SESSION_COOKIE_SECURE=os.getenv('COOKIE_SECURE','false').lower()=='true', PERMANENT_SESSION_LIFETIME=timedelta(hours=8))
 if os.getenv('RENDER') and (not os.getenv('SECRET_KEY') or not os.getenv('DATABASE_URL')): raise RuntimeError('Set SECRET_KEY and DATABASE_URL on Render')
+if os.getenv('RENDER'):
+ from werkzeug.middleware.proxy_fix import ProxyFix
+ app.wsgi_app=ProxyFix(app.wsgi_app,x_for=1,x_proto=1)
 db = SQLAlchemy(app)
 class Product(db.Model):
  id=db.Column(db.String(36),primary_key=True); name=db.Column(db.String(100),nullable=False); category=db.Column(db.String(40)); description=db.Column(db.String(500)); price=db.Column(db.Integer,nullable=False); sale=db.Column(db.Integer,nullable=False); stock=db.Column(db.Integer,default=20); image=db.Column(db.Text); active=db.Column(db.Boolean,default=True)
@@ -25,6 +28,8 @@ class Product(db.Model):
    row=dict(size=v.size,stock=v.stock,enabled=v.enabled,availability='Available' if v.stock>0 else 'Restock soon')
    if private: row['low_stock']=v.enabled and v.stock<5
    result['sizes'].append(row)
+  enabled=[v for v in result['sizes'] if v['enabled']]
+  result['size_type']='one' if len(enabled)==1 and enabled[0]['size']=='One size' else 'age'
   return result
 SIZE_OPTIONS=['0–3 months','3–6 months','6–9 months','9–12 months','One size']
 class ProductSize(db.Model):
@@ -42,7 +47,11 @@ class Event(db.Model):
  id=db.Column(db.Integer,primary_key=True); sid=db.Column(db.String(36)); kind=db.Column(db.String(30)); value=db.Column(db.String(120)); device=db.Column(db.String(20)); browser=db.Column(db.String(30)); os=db.Column(db.String(30)); source=db.Column(db.String(120)); created=db.Column(db.DateTime,default=lambda:datetime.now(timezone.utc))
 class Order(db.Model):
  id=db.Column(db.String(36),primary_key=True); customer=db.Column(db.JSON); items=db.Column(db.JSON); total=db.Column(db.Integer); discount=db.Column(db.Integer); shipping=db.Column(db.Integer); coupon=db.Column(db.String(30)); status=db.Column(db.String(30),default='Enquiry'); created=db.Column(db.DateTime,default=lambda:datetime.now(timezone.utc))
- def data(self): return dict(id=self.id,customer=self.customer,items=self.items,total=self.total,discount=self.discount,shipping=self.shipping,coupon=self.coupon,status=self.status,created=self.created.isoformat())
+ def data(self):
+  data=dict(id=self.id,customer=self.customer,items=self.items,total=self.total,discount=self.discount,shipping=self.shipping,coupon=self.coupon,status=self.status,created=self.created.isoformat())
+  meta=db.session.get(PurchaseMeta,self.id)
+  if meta:data.update(number=meta.number,payment_mode=meta.mode,payment_method=meta.payment_method,login_discount=meta.login_discount,delivery=meta.eta)
+  return data
 class Coupon(db.Model):
  code=db.Column(db.String(30),primary_key=True); percent=db.Column(db.Integer); minimum=db.Column(db.Integer); active=db.Column(db.Boolean,default=True)
 class Attempt(db.Model):
@@ -73,6 +82,7 @@ with app.app_context():
 @app.after_request
 def headers(r):
  r.headers['X-Content-Type-Options']='nosniff'; r.headers['X-Frame-Options']='DENY'; r.headers['Referrer-Policy']='strict-origin-when-cross-origin'
+ if ROLE=='admin':r.headers['X-Robots-Tag']='noindex, nofollow'
  if request.path.startswith('/api/'): r.headers['Cache-Control']='no-store'
  return r
 @app.errorhandler(400)
@@ -82,7 +92,7 @@ def err(e): return jsonify(error=str(e.description)),e.code
 @app.route('/')
 def home(): return send_from_directory('static','admin.html' if ROLE=='admin' else 'index.html')
 @app.get('/health')
-def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='2.1-size-inventory',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
+def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='3.0-checkout-otp',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
 def admin(fn):
  @wraps(fn)
  def wrapped(*a,**k):
@@ -126,7 +136,8 @@ def manage_products():
   for v in sizes:
    if v.get('size') not in SIZE_OPTIONS or v['size'] in seen or type(v.get('stock')) is not int or not 0<=v['stock']<=100000 or type(v.get('enabled',True)) is not bool: raise ValueError()
    seen.add(v['size'])
-  if not any(v.get('enabled',True) for v in sizes): raise ValueError()
+  enabled=[v for v in sizes if v.get('enabled',True)]
+  if not enabled or (any(v['size']=='One size' for v in enabled) and len(enabled)>1): raise ValueError()
   if not name or len(name)>100 or price<1 or not 0<sale<=price or stock<0 or stock>100000 or price>1000000: raise ValueError()
   if not (image.startswith('/static/images/') or re.fullmatch(r'/media/[a-f0-9-]+',image)): raise ValueError('Upload an image first')
  except (KeyError,ValueError,TypeError) as e: return jsonify(error='Enter valid name, prices, stock and an uploaded image.'),400
@@ -171,7 +182,8 @@ def quote(d,lock=False):
   if subtotal<c.minimum: raise ValueError(f'Coupon needs a subtotal of ₹{c.minimum}')
   discount=(subtotal*c.percent+50)//100
  shipping=0 if subtotal>=999 else 69
- return dict(items=lines,subtotal=subtotal,discount=discount,shipping=shipping,total=subtotal-discount+shipping,coupon=code)
+ login_discount=((subtotal-discount)*5+50)//100 if current_customer() else 0
+ return dict(items=lines,subtotal=subtotal,discount=discount,login_discount=login_discount,shipping=shipping,total=subtotal-discount-login_discount+shipping,coupon=code)
 @app.post('/api/quote')
 def pricing():
  try: return jsonify(quote(request.get_json() or {}))
@@ -236,6 +248,9 @@ def analytics():
   if kind: stmt=stmt.where(Event.kind==kind)
   else: stmt=stmt.where(Event.kind=='visit')
   return [{'label':a or 'Unknown','count':b} for a,b in db.session.execute(stmt.group_by(col).order_by(func.count().desc()).limit(20))]
- rows=list(db.session.scalars(select(Order).where(Order.created>=since))); confirmed=[o for o in rows if o.status in ['Confirmed','Shipped','Delivered']]
- return jsonify(days=days,sessions=db.session.scalar(select(func.count(func.distinct(Event.sid))).where(Event.created>=since)),events=[{'label':a,'count':b} for a,b in db.session.execute(select(Event.kind,func.count()).where(Event.created>=since).group_by(Event.kind))],products=group(Event.value,'view'),searches=group(Event.value,'search'),devices=group(Event.device),browsers=group(Event.browser),systems=group(Event.os),sources=group(Event.source),enquiries=len(rows),confirmed=len(confirmed),revenue=sum(o.total for o in confirmed),low_stock=[dict(id=p.id,name=p.name,size=v.size,stock=v.stock,status='Out of stock' if v.stock==0 else 'Low stock') for p,v in db.session.execute(select(Product,ProductSize).join(ProductSize).where(Product.active==True,ProductSize.enabled==True,ProductSize.stock<5).order_by(Product.name,ProductSize.position))])
+ rows=list(db.session.scalars(select(Order).where(Order.created>=since))); confirmed=[o for o in rows if o.status in ['Confirmed','Shipped','Delivered'] and not (db.session.get(PurchaseMeta,o.id) and db.session.get(PurchaseMeta,o.id).mode=='test')]
+ return jsonify(days=days,sessions=db.session.scalar(select(func.count(func.distinct(Event.sid))).where(Event.created>=since)),events=[{'label':a,'count':b} for a,b in db.session.execute(select(Event.kind,func.count()).where(Event.created>=since).group_by(Event.kind))],products=group(Event.value,'view'),searches=group(Event.value,'search'),devices=group(Event.device),browsers=group(Event.browser),systems=group(Event.os),sources=group(Event.source),enquiries=len(rows),test_orders=sum(bool(db.session.get(PurchaseMeta,o.id) and db.session.get(PurchaseMeta,o.id).mode=='test') for o in rows),confirmed=len(confirmed),revenue=sum(o.total for o in confirmed),low_stock=[dict(id=p.id,name=p.name,size=v.size,stock=v.stock,status='Out of stock' if v.stock==0 else 'Low stock') for p,v in db.session.execute(select(Product,ProductSize).join(ProductSize).where(Product.active==True,ProductSize.enabled==True,ProductSize.stock<5).order_by(Product.name,ProductSize.position))])
+import sys
+from features import install
+install(sys.modules[__name__])
 if __name__=='__main__': app.run(host='127.0.0.1',port=int(os.getenv('PORT','5000')))

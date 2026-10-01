@@ -11,6 +11,9 @@ with tempfile.TemporaryDirectory() as tmp:
 from app import app,db,Product,Order,Coupon,Media
 with app.app_context():
  p=db.session.get(Product,'1');p.stock=7;p.name='Owner product';p.sale=211
+ import app as module
+ if hasattr(module,'ProductSize'):
+  db.session.get(module.ProductSize,('1','One size')).stock=7
  db.session.add(Order(id='legacy-enquiry',customer={},items=[dict(id='1',name=p.name,qty=2,price=211)],total=491,status='Enquiry'))
  db.session.add(Media(id='existing-image',content='saved-image-content'))
  db.session.get(Coupon,'TINY10').percent=12
@@ -26,6 +29,10 @@ with app.app_context():
  assert db.session.get(Media,'existing-image').content=='saved-image-content'
  assert db.session.get(Coupon,'TINY10').percent==12
  assert ProductSize.query.filter_by(product_id='1').count()==1
+ from app import PurchaseMeta,Counter
+ meta=db.session.get(PurchaseMeta,'legacy-enquiry')
+ assert len(meta.number)==10 and meta.mode=='legacy'
+ assert db.session.get(Counter,'orders').value==1
 """
  for _ in range(2): subprocess.run([os.sys.executable,'-c',check],cwd=base,env=env,check=True)
 print('PASS: old products, prices, stock, enquiry, uploaded media and coupon preserved; startup migration idempotent.')

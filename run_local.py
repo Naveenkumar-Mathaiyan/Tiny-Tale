@@ -13,7 +13,7 @@ if role not in ('store','admin'):
 port = 5002 if role=='admin' else 5000
 os.environ['APP_ROLE'] = role
 os.environ['PORT'] = str(port)
-print('Tiny Tale startup fix v2', flush=True)
+print('Tiny Tale 3.0', flush=True)
 print('Application folder:',base,flush=True)
 try:
     state = load_config(base)

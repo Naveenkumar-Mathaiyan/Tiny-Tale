@@ -1,22 +1,25 @@
-# Tiny Tale 2.1 verification
+# Tiny Tale 3.0 verification
 
-Passed in the build environment:
-- Python compilation and JavaScript syntax checks.
-- SQLite API smoke tests: existing product photos, admin authentication/CSRF, pricing/coupons, enquiries, confirmation/cancellation, image upload validation, consent analytics and storefront rejection of private admin APIs.
-- Size example 12 / 3 / 0 / 8: customer availability labels, independent quantities, unavailable-size rejection, admin alerts below five, and no alert at exactly five.
-- Chosen size saved in order lines; confirming and cancelling adjusts only its inventory.
-- Public size records contain no low-stock flags; private analytics contain alerts.
-- Migration from previous build: owner name/price/stock, existing enquiries, uploaded media and coupon changes preserved. Running startup twice did not duplicate/reset the migrated stock.
-- Node DOM-stub tests: customer rendered labels, size selection, disabled sold-out buttons, cart quantity limit, size in cart/detail, no admin warning text.
+Passed:
+- Python compilation and all three JavaScript syntax checks.
+- SQLite integration: mandatory OTP checkout, customer CSRF, hashed codes, invalid codes, expiry, five-attempt lockout, reuse rejection, cooldown, session login/logout and customer-owned history.
+- OTP delivery mocked in tests; no code is exposed in API responses and no real email was sent.
+- Coupon + 5% login calculation; unauthenticated quotes receive no login discount.
+- Credit/debit/UPI/net-banking test methods; failure/cancellation create no order; COD and raw credentials are rejected; retries return the same order, changed retries are rejected.
+- Unique readable order numbers and server-generated QR; business/PIN/day/map validation and delivery estimate responses.
+- One Size / age size validation; selected-size availability; zero-stock restrictions; restock deduplication, counts and closing requests.
+- Stock confirmation/cancellation and exclusion of simulated orders from confirmed value; image uploads still work.
+- Analytics consent, active seconds, ordered path funnel and server-only test-success event.
+- Canonical home page, product structured data, sitemap, draft policy page and store rejection of private admin endpoints.
+- Node DOM-stub tests: One Size labels, Notify me, cart limits, OTP continuation preserving cart, sample card/expiry/CVV/UPI/bank validation, credential-free payment request, confirmation/ETA and no WhatsApp redirect.
+- Migration from both uploaded original application and previously merged v2.1 build: existing names/prices/stock/enquiries/media/coupons preserved; readable number added; repeated startup does not reset data.
 
-Commands:
+Run:
 ```sh
 python tests/smoke.py
 node tests/frontend.cjs
-python tests/upgrade.py
+# Point at an unpacked previous application to test a disposable migration.
+TINY_TALE_PREVIOUS_BUILD=/path/to/previous/build python tests/upgrade.py
 ```
-The migration test needs the previous `tiny-tale` project beside this project (see its source). It uses a disposable database, not your own database.
 
-Limits: full browser layout/interactions were not verified because the Chromium download failed in this environment. PostgreSQL deployment and concurrent row-lock behavior were not exercised against a live PostgreSQL server; integration tests used SQLite. The existing Render deployment was not changed by this build delivery.
-
-Merged release: API and frontend logic tests passed again. Upgrade testing used a disposable database created by the uploaded old application, then loaded the merged application twice. Render settings, requirements, configuration loader, launcher, both startup scripts and product images match the uploaded old files byte-for-byte. Windows APPLY-UPDATE.bat was reviewed but could not be executed in this Linux environment.
+Not verified: live Brevo email delivery (no API key supplied), PostgreSQL concurrent requests, real courier delivery, full browser layout/interactions or Windows updater execution. Payments are local simulations rather than a provider sandbox. The included frontend tests stub the DOM and do not substitute for browser testing.
