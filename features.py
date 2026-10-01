@@ -33,7 +33,11 @@ def install(m):
   row=db.session.get(Setting,'business');return {**defaults,**(row.value if row else {})}
  def india_date(dt): return (dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt).astimezone(timezone(timedelta(hours=5,minutes=30)))
  def number(dt,counter):
-  counter.value+=1;return india_date(dt).strftime('%y%m%d')+str(counter.value).zfill(4)
+  config=db.session.get(Setting,'numbering');cfg=config.value if config else {}
+  while True:
+   counter.value+=1
+   candidate=cfg.get('prefix','')+(india_date(dt).strftime('%y%m%d') if cfg.get('date',True) else '')+str(counter.value).zfill(cfg.get('padding',4))
+   if not db.session.scalar(select(PurchaseMeta).where(PurchaseMeta.number==candidate)):return candidate
  with app.app_context():
   guard=db.engine.connect() if db.engine.dialect.name=='postgresql' else None
   try:
@@ -65,21 +69,31 @@ def install(m):
  @app.get('/api/account')
  def account():
   session.setdefault('customer_csrf',secrets.token_hex(24));c=current()
-  return jsonify(customer=dict(email=c.email) if c else None,csrf=session['customer_csrf'],otp_ready=bool(os.getenv('BREVO_API_KEY') and os.getenv('BREVO_SENDER_EMAIL')))
+  return jsonify(customer=dict(email=c.email) if c else None,csrf=session['customer_csrf'],otp_ready=bool(os.getenv('BREVO_API_KEY','').strip() and os.getenv('BREVO_SENDER_EMAIL','').strip()))
  def send_otp(email,code):
-  key=os.getenv('BREVO_API_KEY');sender=os.getenv('BREVO_SENDER_EMAIL')
+  key=os.getenv('BREVO_API_KEY','').strip();sender=os.getenv('BREVO_SENDER_EMAIL','').strip()
   if not key or not sender:raise RuntimeError('Email login is not configured. Please contact the store.')
   body=dict(sender=dict(name=os.getenv('BREVO_SENDER_NAME','Tiny Tale'),email=sender),to=[dict(email=email)],subject='Your Tiny Tale login code',textContent=f'Your Tiny Tale verification code is {code}. It expires in 5 minutes. If you did not request it, ignore this email. Never share this code.')
+  body['htmlContent']=f'<div style="font-family:Arial;max-width:520px;margin:auto;padding:32px;color:#163e50"><h1>Tiny Tale</h1><h2>Your login code</h2><p style="font-size:36px;letter-spacing:8px">{code}</p><p>This code can only be used once and expires in 5 minutes.</p><p>If you did not request this code, ignore this email. Never share it.</p></div>'
   req=urllib.request.Request('https://api.brevo.com/v3/smtp/email',data=json.dumps(body).encode(),headers={'api-key':key,'Content-Type':'application/json','Accept':'application/json'},method='POST')
   try:
    with urllib.request.urlopen(req,timeout=12) as response:
     if response.status not in (200,201,202):raise RuntimeError('Email delivery is temporarily unavailable.')
-  except (urllib.error.HTTPError,urllib.error.URLError,TimeoutError):raise RuntimeError('Could not send the login email. Please try later or contact the store.') from None
+  except urllib.error.HTTPError as exc:
+   m.record_email_status(False,'Brevo HTTP '+str(exc.code)+'. Check API key, authorized sender, account activation, credits and Brevo IP restrictions.')
+   raise RuntimeError('The store could not send your code. Please contact Tiny Tale or try again later.') from None
+  except (urllib.error.URLError,TimeoutError):
+   m.record_email_status(False,'Brevo connection timeout or network error.')
+   raise RuntimeError('Email delivery timed out. Please try again shortly.') from None
+  m.record_email_status(True,'Brevo accepted the login email. Check Transactional logs if delivery is delayed.')
  m.send_otp=send_otp
  @app.post('/api/auth/request')
  @protect
  def request_otp():
   d=request.get_json(silent=True) or {};email=str(d.get('email','')).strip().lower()
+  if not os.getenv('BREVO_API_KEY','').strip() or not os.getenv('BREVO_SENDER_EMAIL','').strip():
+   m.record_email_status(False,'Missing BREVO_API_KEY or BREVO_SENDER_EMAIL on customer store service.')
+   return jsonify(error='Email login is temporarily unavailable. The store needs to finish email setup.'),503
   if len(email)>254 or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',email):return jsonify(error='Enter a valid email address.'),400
   ip=hashlib.sha256((request.remote_addr or 'unknown').encode()).hexdigest();since=now()-timedelta(minutes=15)
   # A transaction-scoped lock serializes concurrent requests from one IP in PostgreSQL.

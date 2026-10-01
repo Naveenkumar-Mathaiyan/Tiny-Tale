@@ -92,7 +92,7 @@ def err(e): return jsonify(error=str(e.description)),e.code
 @app.route('/')
 def home(): return send_from_directory('static','admin.html' if ROLE=='admin' else 'index.html')
 @app.get('/health')
-def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='3.0-checkout-otp',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
+def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='4.0-media-marketing',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
 def admin(fn):
  @wraps(fn)
  def wrapped(*a,**k):
@@ -227,7 +227,7 @@ def coupons():
 def events():
  d=request.get_json() or {}
  if d.get('consent') is not True: return jsonify(error='Analytics consent required'),400
- if d.get('kind') not in ['visit','view','search','add_cart','buy_now','checkout','coupon','whatsapp','order_enquiry']: return jsonify(error='Invalid event'),400
+ if d.get('kind') not in ['visit','view','search','add_cart','buy_now','checkout','coupon','whatsapp','order_enquiry','favourite','banner_click']: return jsonify(error='Invalid event'),400
  sid=str(d.get('sid',''))
  if not re.fullmatch(r'[a-f0-9-]{36}',sid): return jsonify(error='Invalid session'),400
  count=db.session.scalar(select(func.count()).select_from(Event).where(Event.sid==sid,Event.created>datetime.now(timezone.utc)-timedelta(hours=1)))
@@ -253,4 +253,6 @@ def analytics():
 import sys
 from features import install
 install(sys.modules[__name__])
+from enhancements import install as install_enhancements
+install_enhancements(sys.modules[__name__])
 if __name__=='__main__': app.run(host='127.0.0.1',port=int(os.getenv('PORT','5000')))

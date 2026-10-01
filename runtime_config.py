@@ -12,7 +12,7 @@ def load_config(base):
     raw = path.read_bytes()
     encoding = 'utf-16' if raw.startswith((b'\xff\xfe', b'\xfe\xff')) else 'utf-8-sig'
     values = dotenv_values(stream=io.StringIO(raw.decode(encoding)), interpolate=False)
-    for key in ('ADMIN_PASSWORD', 'ADMIN_PASSWORD_HASH', 'SECRET_KEY', 'DATABASE_URL', 'COOKIE_SECURE','BREVO_API_KEY','BREVO_SENDER_EMAIL','BREVO_SENDER_NAME','SITE_URL'):
+    for key in ('ADMIN_PASSWORD', 'ADMIN_PASSWORD_HASH', 'SECRET_KEY', 'DATABASE_URL', 'COOKIE_SECURE','BREVO_API_KEY','BREVO_SENDER_EMAIL','BREVO_SENDER_NAME','SITE_URL','GEOIP_DATABASE'):
         value = values.get(key)
         if value:
             if not os.getenv('RENDER') or not os.getenv(key):
