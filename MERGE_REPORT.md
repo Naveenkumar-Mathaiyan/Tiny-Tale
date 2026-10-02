@@ -1,13 +1,5 @@
-# Merge report
+# Release basis
 
-Compared the two user-provided ZIPs directly.
+This release builds on the merged Tiny Tale 2.1 project made from the two uploaded ZIPs. Existing render.yaml and product images are retained. App code, startup version, frontend, docs and tests are updated; features.py, admin-extra.js and qrcode are added.
 
-Updated from the size-inventory build: `app.py`, `static/admin.html`, `static/admin.js`, `static/store.js`, `static/styles.css`.
-
-Preserved byte-for-byte from your old folder: `render.yaml`, `requirements.txt`, `runtime_config.py`, `run_local.py`, both startup BAT files and all 11 product images. These files match the uploaded new build.
-
-Added the new build's tests, `.gitignore`, `.env.example`, upgrade notes and verification notes. Corrected the README admin local URL to port 5002, matching your retained launcher. Replaced obsolete INSTALL instructions with directions for this release.
-
-The old ZIP also contained `.env`, `.git`, `.venv` and a local database. Their contents are not redistributed in this release. The update script keeps those existing files on your computer by copying only the clean release into the existing repository without deleting anything.
-
-The updater does not run Git commands, create services or touch Render. The Git commands in START_HERE explicitly stage the application files.
+No API key, .env, customer database, Git history or virtual environment is included. The update copies into the existing repository; those files stay on your computer.

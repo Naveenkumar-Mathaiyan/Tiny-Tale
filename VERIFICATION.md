@@ -1,25 +1,15 @@
-# Tiny Tale 3.0 verification
+# Verification for v5
 
-Passed:
-- Python compilation and all three JavaScript syntax checks.
-- SQLite integration: mandatory OTP checkout, customer CSRF, hashed codes, invalid codes, expiry, five-attempt lockout, reuse rejection, cooldown, session login/logout and customer-owned history.
-- OTP delivery mocked in tests; no code is exposed in API responses and no real email was sent.
-- Coupon + 5% login calculation; unauthenticated quotes receive no login discount.
-- Credit/debit/UPI/net-banking test methods; failure/cancellation create no order; COD and raw credentials are rejected; retries return the same order, changed retries are rejected.
-- Unique readable order numbers and server-generated QR; business/PIN/day/map validation and delivery estimate responses.
-- One Size / age size validation; selected-size availability; zero-stock restrictions; restock deduplication, counts and closing requests.
-- Stock confirmation/cancellation and exclusion of simulated orders from confirmed value; image uploads still work.
-- Analytics consent, active seconds, ordered path funnel and server-only test-success event.
-- Canonical home page, product structured data, sitemap, draft policy page and store rejection of private admin endpoints.
-- Node DOM-stub tests: One Size labels, Notify me, cart limits, OTP continuation preserving cart, sample card/expiry/CVV/UPI/bank validation, credential-free payment request, confirmation/ETA and no WhatsApp redirect.
-- Migration from both uploaded original application and previously merged v2.1 build: existing names/prices/stock/enquiries/media/coupons preserved; readable number added; repeated startup does not reset data.
+Passed on disposable SQLite with mock email:
+- Existing OTP, CSRF, replay prevention, four simulated payment flows, discounts, checkout continuation, order numbering, size stock, restock requests, delivery/settings, stock transitions and SEO regressions.
+- Owner, Admin and Store keeper login/permissions; server denies all restricted routes for keepers; account reset/disable revokes sessions; prices/content/size configuration cannot be changed through the stock-only endpoint.
+- Gallery-only staff updates, GIF preservation, MP4 upload/range streaming, invalid media rejection, optional banner CTA validation and product destination links.
+- Real PDF and XLSX bytes for orders, inventory, restock, traffic and journey reports; date validation and IST boundary inclusion; empty datasets; Excel formula protection.
+- Multi-page PDF headings/footers; rendered PDF page inspected for layout.
+- Real DOM script loading, role-specific navigation/editor controls, campaign dashboard, optional banner controls, gallery controls, report preview/download controls and existing customer UI behavior.
+- Additive migration from v4 preserving products, prices, stocks, orders, uploaded images and coupons; repeated startup is idempotent.
+- JavaScript syntax checks and ZIP CRC/complete extraction/byte equality checks.
 
-Run:
-```sh
-python tests/smoke.py
-node tests/frontend.cjs
-# Point at an unpacked previous application to test a disposable migration.
-TINY_TALE_PREVIOUS_BUILD=/path/to/previous/build python tests/upgrade.py
-```
+Limits: no visual browser test (Chromium download truncated), no live Render/PostgreSQL or Brevo delivery test, and no Windows execution of updater. The PDF layout was rendered and inspected. Payments remain simulated. Country/state remains Unknown unless your optional IP-location database is configured. A configured shared database is required to synchronize both services.
 
-Not verified: live Brevo email delivery (no API key supplied), PostgreSQL concurrent requests, real courier delivery, full browser layout/interactions or Windows updater execution. Payments are local simulations rather than a provider sandbox. The included frontend tests stub the DOM and do not substitute for browser testing.
+Recommended deployment checks: log in as owner, create a Store keeper, verify restricted menus and edits, update stock and view the customer size availability, reorder media, publish a media-only banner and a product-linked banner, generate/download each report, and retest customer OTP/checkout.

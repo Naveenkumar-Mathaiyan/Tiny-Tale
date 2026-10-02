@@ -88,7 +88,7 @@ def install(m):
    if not isinstance(provider,dict):provider={}
    hint=str(provider.get('message','')).lower();code=str(provider.get('code',''))
    if not re.fullmatch(r'[a-z_]{1,50}',code):code='unknown'
-   if 'ip' in hint and any(x in hint for x in ['unauthor','not author','block','whitelist','unknown']):
+   if 'ip' in hint and any(x in hint for x in ['unauthor','not author','block','whitelist','unknown','unrecognised','unrecognized']):
     ref='EMAIL_IP';guidance='Brevo blocked the server IP. Review Brevo SMTP & API → Authorized IPs and the unknown-IP verification email. Authorize the Render outbound IP shown by Brevo.'
    elif 'sender' in hint or ('from' in hint and 'email' in hint):
     ref='EMAIL_SENDER';guidance='Brevo rejected the sender. Verify the exact BREVO_SENDER_EMAIL in Brevo → Senders, and ensure transactional sending is active.'
@@ -230,7 +230,7 @@ def install(m):
   rows=list(db.session.scalars(select(Journey).where(Journey.created>=now()-timedelta(days=days)).order_by(Journey.created,Journey.id)))
   journeys={};duration={};errors={}
   for r in rows:
-   j=journeys.setdefault(r.sid,dict(sid=r.sid[:8],stages=[],seconds=0,last=r.stage))
+   j=journeys.setdefault(r.sid,dict(sid=r.sid[:8],started=(r.created+timedelta(hours=5,minutes=30)).isoformat(),stages=[],seconds=0,last=r.stage))
    if r.kind!='active' and (r.stage!='success' or r.kind=='test_payment_success') and (not j['stages'] or j['stages'][-1]!=r.stage):j['stages'].append(r.stage)
    j['seconds']+=r.seconds;j['last']=r.stage;duration[r.stage]=duration.get(r.stage,0)+r.seconds
    if r.kind.endswith('error') or r.kind.endswith('failed') or r.kind.endswith('cancelled'):errors[r.kind]=errors.get(r.kind,0)+1

@@ -1,7 +1,7 @@
-Tiny Tale 2.1 merged build
-
-Existing user: follow START_HERE.txt for the merged update and Git push.
-New local setup: follow README.md.
-Customer URL: http://127.0.0.1:5000
-Admin URL: http://127.0.0.1:5002
-Keep your existing .env, .venv, instance and .git.
+Tiny Tale 3.0
+Existing deployment: use START_HERE.txt.
+Local customer: http://127.0.0.1:5000
+Local admin: http://127.0.0.1:5002
+Install requirements into your existing virtual environment.
+Keep existing .env, .venv, instance and .git.
+For OTP add private Brevo variables to .env or Render Environment, as explained in README.md.

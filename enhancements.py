@@ -102,6 +102,10 @@ def install(m):
   try:
    if not isinstance(d.get('gallery'),list) or len(d['gallery'])>12:raise ValueError('Use at most 12 gallery items.')
    data=dict(gallery=[media_item(x) for x in d['gallery']],**{k:str(d.get(k,''))[:6000] for k in ['details','care','material']})
+   if m.staff_identity()['role']=='store_keeper':
+    old=row.content if row else {}
+    if any(k in d and d[k]!=old.get(k,'') for k in ['details','care','material']):return jsonify(error='Store keepers may update media only.'),403
+    data.update({k:old.get(k,'') for k in ['details','care','material']})
   except ValueError as e:return jsonify(error=str(e)),400
   if row:row.content=data
   else:db.session.add(Merch(product_id=pid,content=data))
@@ -118,9 +122,10 @@ def install(m):
    if row:db.session.delete(row);db.session.commit()
    return jsonify(ok=True)
   try:
-   media=media_item(d);link=str(d.get('link','#collection'))
-   if not re.fullmatch(r'(?:#(?:collection|about|care)|/policies|/\?product=[A-Za-z0-9-]+#collection|login)',link):raise ValueError('Choose #collection, #about, #care, /policies, login or a product link /?product=ID#collection.')
-   value=media|dict(title=str(d.get('title',''))[:100],subtitle=str(d.get('subtitle',''))[:250],button=str(d.get('button','Shop now'))[:40],link=link,active=d.get('active') is True)
+   media=media_item(d);link=str(d.get('link','')).strip();button=str(d.get('button','')).strip()
+   if link and not re.fullmatch(r'(?:#(?:collection|about|care)|/policies|/\?product=[A-Za-z0-9-]+#collection|login)',link):raise ValueError('Choose #collection, #about, #care, /policies, login or a product link /?product=ID#collection.')
+   if bool(button)!=bool(link):raise ValueError('Choose both a button label and destination, or leave both empty for an image-only banner.')
+   value=media|dict(title=str(d.get('title',''))[:100],subtitle=str(d.get('subtitle',''))[:250],button=button[:40],link=link,active=d.get('active') is True)
   except ValueError as e:return jsonify(error=str(e)),400
   if row:row.content=value
   else:row=Banner(id=str(uuid.uuid4()),content=value);db.session.add(row)

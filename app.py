@@ -92,7 +92,7 @@ def err(e): return jsonify(error=str(e.description)),e.code
 @app.route('/')
 def home(): return send_from_directory('static','admin.html' if ROLE=='admin' else 'index.html')
 @app.get('/health')
-def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='4.1-header-email',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
+def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='5.0-admin-studio',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
 def admin(fn):
  @wraps(fn)
  def wrapped(*a,**k):
@@ -105,19 +105,21 @@ def admin(fn):
 def login():
  if ROLE!='admin': abort(404)
  password=os.getenv('ADMIN_PASSWORD',''); hashed=os.getenv('ADMIN_PASSWORD_HASH','')
- if not password and not hashed: return jsonify(error='Set ADMIN_PASSWORD in server environment before signing in.'),503
+ if not password and not hashed and not (request.get_json(silent=True) or {}).get('username'): return jsonify(error='Set ADMIN_PASSWORD in server environment before signing in.'),503
  import hashlib
  key=hashlib.sha256(request.remote_addr.encode()).hexdigest(); a=db.session.get(Attempt,key)
  if not a: a=Attempt(key=key,count=0,started=datetime.utcnow()); db.session.add(a)
  if datetime.utcnow()-a.started>timedelta(minutes=15): a.count=0; a.started=datetime.utcnow()
  if a.count>=10: return jsonify(error='Too many attempts. Try again in 15 minutes.'),429
  d=request.get_json() or {}; entered=str(d.get('password',''))
- valid=check_password_hash(hashed,entered) if hashed else secrets.compare_digest(password,entered)
+ username=str(d.get('username','')).strip().lower()
+ staff=db.session.scalar(select(Staff).where(Staff.username==username)) if username else None
+ valid=(bool(staff and staff.active and check_password_hash(staff.password_hash,entered)) if username else (check_password_hash(hashed,entered) if hashed else bool(password) and secrets.compare_digest(password,entered)))
  if not valid: a.count+=1; db.session.commit(); return jsonify(error='Incorrect password'),401
- a.count=0; db.session.commit(); session.clear(); session.permanent=True; session['admin']=True; session['csrf']=secrets.token_hex(24); return jsonify(csrf=session['csrf'])
+ a.count=0; db.session.commit(); session.clear(); session.permanent=True; session['admin']=True; session['staff_id']=staff.id if staff else None; session['staff_version']=staff.version if staff else None; session['csrf']=secrets.token_hex(24); return jsonify(csrf=session['csrf'],user=staff_identity())
 @app.get('/api/admin/session')
 @admin
-def logged(): return jsonify(csrf=session['csrf'])
+def logged(): return jsonify(csrf=session['csrf'],user=staff_identity())
 @app.post('/api/admin/logout')
 @admin
 def logout(): session.clear(); return jsonify(ok=True)
@@ -255,4 +257,6 @@ from features import install
 install(sys.modules[__name__])
 from enhancements import install as install_enhancements
 install_enhancements(sys.modules[__name__])
+from management import install as install_management
+install_management(sys.modules[__name__])
 if __name__=='__main__': app.run(host='127.0.0.1',port=int(os.getenv('PORT','5000')))
