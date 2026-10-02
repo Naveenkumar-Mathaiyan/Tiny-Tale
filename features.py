@@ -73,6 +73,9 @@ def install(m):
  def send_otp(email,code):
   key=os.getenv('BREVO_API_KEY','').strip();sender=os.getenv('BREVO_SENDER_EMAIL','').strip()
   if not key or not sender:raise RuntimeError('Email login is not configured. Please contact the store.')
+  if any(ord(c) in [10,13,34,39] for c in key) or not re.fullmatch(r'[^\s@]+@[^\s@]+\.[^\s@]+',sender):
+   m.record_email_status(False,'EMAIL_CONFIG: Invalid key formatting or sender email. In Render enter the raw API key without quotes or line breaks and a valid sender email.')
+   raise RuntimeError('Email delivery unavailable (EMAIL_CONFIG). Please contact Tiny Tale.')
   body=dict(sender=dict(name=os.getenv('BREVO_SENDER_NAME','Tiny Tale'),email=sender),to=[dict(email=email)],subject='Your Tiny Tale login code',textContent=f'Your Tiny Tale verification code is {code}. It expires in 5 minutes. If you did not request it, ignore this email. Never share this code.')
   body['htmlContent']=f'<div style="font-family:Arial;max-width:520px;margin:auto;padding:32px;color:#163e50"><h1>Tiny Tale</h1><h2>Your login code</h2><p style="font-size:36px;letter-spacing:8px">{code}</p><p>This code can only be used once and expires in 5 minutes.</p><p>If you did not request this code, ignore this email. Never share it.</p></div>'
   req=urllib.request.Request('https://api.brevo.com/v3/smtp/email',data=json.dumps(body).encode(),headers={'api-key':key,'Content-Type':'application/json','Accept':'application/json'},method='POST')
@@ -80,13 +83,31 @@ def install(m):
    with urllib.request.urlopen(req,timeout=12) as response:
     if response.status not in (200,201,202):raise RuntimeError('Email delivery is temporarily unavailable.')
   except urllib.error.HTTPError as exc:
-   m.record_email_status(False,'Brevo HTTP '+str(exc.code)+'. Check API key, authorized sender, account activation, credits and Brevo IP restrictions.')
-   raise RuntimeError('The store could not send your code. Please contact Tiny Tale or try again later.') from None
+   try:provider=json.loads(exc.read(8192).decode('utf-8','replace'))
+   except (ValueError,TypeError):provider={}
+   if not isinstance(provider,dict):provider={}
+   hint=str(provider.get('message','')).lower();code=str(provider.get('code',''))
+   if not re.fullmatch(r'[a-z_]{1,50}',code):code='unknown'
+   if 'ip' in hint and any(x in hint for x in ['unauthor','not author','block','whitelist','unknown']):
+    ref='EMAIL_IP';guidance='Brevo blocked the server IP. Review Brevo SMTP & API → Authorized IPs and the unknown-IP verification email. Authorize the Render outbound IP shown by Brevo.'
+   elif 'sender' in hint or ('from' in hint and 'email' in hint):
+    ref='EMAIL_SENDER';guidance='Brevo rejected the sender. Verify the exact BREVO_SENDER_EMAIL in Brevo → Senders, and ensure transactional sending is active.'
+   elif 'credit' in hint or 'quota' in hint or 'limit' in hint or exc.code==429:
+    ref='EMAIL_LIMIT';guidance='Brevo reported a quota/rate/credit limit. Check account credits and sending limits, then retry after the limit resets.'
+   elif exc.code==401 or code=='unauthorized':
+    ref='EMAIL_AUTH';guidance='Brevo rejected API authentication. Set a valid active API key (not an SMTP key) in the customer Render service. Check Brevo account/IP verification and save/deploy the environment.'
+   elif exc.code==403 or code=='permission_denied':
+    ref='EMAIL_PERMISSION';guidance='Brevo denied sending permission. Check transactional account activation, API permissions and Authorized IPs.'
+   else:
+    ref='EMAIL_PROVIDER';guidance='Brevo rejected this request. Review Brevo Transactional logs, sender verification and account status.'
+   m.record_email_status(False,f'{ref}: HTTP {exc.code}; provider code {code}. {guidance}')
+   raise RuntimeError(f'Email delivery unavailable ({ref}). Please contact Tiny Tale or try again later.') from None
   except (urllib.error.URLError,TimeoutError):
    m.record_email_status(False,'Brevo connection timeout or network error.')
    raise RuntimeError('Email delivery timed out. Please try again shortly.') from None
   m.record_email_status(True,'Brevo accepted the login email. Check Transactional logs if delivery is delayed.')
  m.send_otp=send_otp
+ m.brevo_send_otp=send_otp
  @app.post('/api/auth/request')
  @protect
  def request_otp():

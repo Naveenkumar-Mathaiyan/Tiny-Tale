@@ -1,4 +1,4 @@
-# Tiny Tale v4 — update and email setup
+# Tiny Tale v4.1 — update and email setup
 
 This is an update to the supplied v3 source. It has not been pushed to your GitHub repository or deployed to your Render account.
 
@@ -42,7 +42,7 @@ git push origin main
 
 If your folder contains additional local changes, inspect them before committing. Do not add private `.env`, API keys or database files. `enhancements.py`, all changed `static` files and `render.yaml` MUST be pushed together.
 
-Deploy the same commit on **tiny-tale-store AND tiny-tale-admin**. Do not reset the database. `/health` will identify `4.0-media-marketing`. Existing orders keep their old numbers; products, size stock, customers and media stay in their shared database. Refresh the browser after deployment.
+Deploy the same commit on **tiny-tale-store AND tiny-tale-admin**. Do not reset the database. `/health` will identify `4.1-header-email`. Existing orders keep their old numbers; products, size stock, customers and media stay in their shared database. Refresh the browser after deployment.
 
 ## 3. What changed
 
@@ -77,3 +77,11 @@ Payments are still simulated credit/debit card, UPI and net banking. No money is
 Disposable-database regression tests cover OTP expiration/attempts/replay/CSRF, four test payment methods, discount calculations, duplicate checkout prevention, order ownership, size stock/restock, delivery settings, order status transitions and preserving previous data. v4 tests cover missing email configuration, private diagnostics, GIF preservation, media validation, galleries, banners, numbering and consented attribution. Real Brevo delivery and your hosted PostgreSQL/Render deployment still require checking after configuration. No key is bundled. DOM tests also cover both sets of frontend scripts and the new UI controls. A visual-browser check could not be completed because the browser download was truncated in this environment; review the mobile layout and your uploaded video codecs after deployment.
 
 Local development: install `requirements.txt` in your virtual environment, set local `.env` credentials, and run the existing start scripts. Separate store/admin processes must share the same database, as before.
+
+## v4.1 screenshot fixes
+
+The storefront header now has aligned brand, desktop links and account/bag controls. Menu is shown on smaller screens. Email login has a full-width input and buttons in a compact dialog.
+
+If sending fails, Admin → Email login setup now identifies safe categories: EMAIL_AUTH (API authentication), EMAIL_IP (server-IP authorization), EMAIL_SENDER (sender rejection), EMAIL_PERMISSION (sending permission), EMAIL_LIMIT (quota/rate/credits), EMAIL_CONFIG (invalid formatting), or EMAIL_PROVIDER (other provider error). The private provider message and your key are not displayed. The customer sees a reference code to report.
+
+This cannot repair credentials or authorization inside your Brevo account. Request a fresh code after deploying, then read the exact admin diagnostic and follow its instruction. For IP blocking, check Brevo's blocked/authorized IP list and verification email; authorize the server IP shown by Brevo. For API authentication, replace the customer service's BREVO_API_KEY with an active API key and Save and deploy. For sender rejection, verify mnk9522@gmail.com in Brevo and ensure the Render sender matches exactly.

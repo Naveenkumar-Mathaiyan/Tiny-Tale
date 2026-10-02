@@ -92,7 +92,7 @@ def err(e): return jsonify(error=str(e.description)),e.code
 @app.route('/')
 def home(): return send_from_directory('static','admin.html' if ROLE=='admin' else 'index.html')
 @app.get('/health')
-def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='4.0-media-marketing',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
+def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='4.1-header-email',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
 def admin(fn):
  @wraps(fn)
  def wrapped(*a,**k):
