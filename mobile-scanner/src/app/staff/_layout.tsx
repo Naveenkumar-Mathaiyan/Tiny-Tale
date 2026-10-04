@@ -1,0 +1,7 @@
+import React from 'react';
+import {Stack,Redirect,router} from 'expo-router';
+import {Text,View,Pressable,Alert,ActivityIndicator} from 'react-native';
+import {SafeAreaView} from 'react-native-safe-area-context';
+import {useSession} from '../../session';
+import {styles} from '../../components/UI';
+export default function StaffLayout(){const s=useSession();if(!s.ready)return <ActivityIndicator/>;if(!s.login)return <Redirect href="/login"/>;const routes=[['Stock','/staff/stock','stock'],['Receive','/staff/receive','receive'],['Sales','/staff/sales','sell'],['Receipts','/staff/bills','sell']] as const;return <SafeAreaView style={styles.page}><View style={{padding:18,gap:12,borderBottomWidth:1,borderColor:'#dae4d8'}}><Text style={styles.label}>{s.login.user.name} · {s.login.user.role.replace('_',' ')}</Text><View style={styles.row}>{routes.filter(x=>s.login!.capabilities.includes(x[2])).map(x=><Pressable key={x[0]} accessibilityRole="button" style={{padding:10}} onPress={()=>router.navigate(x[1])}><Text style={styles.label}>{x[0]}</Text></Pressable>)}<Pressable style={{padding:10}} onPress={()=>Alert.alert('Sign out?','Unresolved batches stay saved for this staff account.',[{text:'Cancel',style:'cancel'},{text:'Sign out',onPress:async()=>{await s.signout();router.replace('/login')}}])}><Text style={styles.muted}>Sign out</Text></Pressable></View></View><Stack screenOptions={{headerShown:false}}/></SafeAreaView>}

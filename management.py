@@ -43,10 +43,8 @@ def install(m):
   if not user:session.clear();return jsonify(error='Please sign in again.'),401
   endpoint=request.path.removeprefix('/api/admin/').split('/')[0]
   if endpoint=='accounts' and user['role']!='super_admin':return jsonify(error='Only the super admin can manage staff accounts.'),403
-  if user['role']=='store_keeper':
-   allowed={'session','logout','stock','upload','assets','merch'}
-   if endpoint=='products' and request.method=='GET':return
-   if endpoint not in allowed:return jsonify(error='Your account can update stock and product media only.'),403
+  from operations import can_access
+  if not can_access(user['role'],endpoint,request.method):return jsonify(error='This section is not available for your role.'),403
  @app.route('/api/admin/accounts',methods=['GET','POST'])
  @m.admin
  def accounts():
@@ -56,12 +54,12 @@ def install(m):
   try:
    username=str(d.get('username','')).strip().lower();name=str(d.get('name','')).strip();role=d.get('role');password=d.get('password','');active=d.get('active',True)
    if not re.fullmatch(r'[a-z0-9][a-z0-9._-]{2,59}',username):raise ValueError('Username: 3–60 letters, digits, dots, underscores or hyphens.')
-   if not name or len(name)>100 or role not in ['admin','store_keeper'] or type(active)is not bool:raise ValueError('Enter a name, valid role and active status.')
+   if not name or len(name)>100 or role not in ['admin','store_keeper','store_manager','manager','supervisor','billing'] or type(active)is not bool:raise ValueError('Enter a name, valid role and active status.')
    if not isinstance(password,str) or (password and not 12<=len(password)<=128) or (not s and not password):raise ValueError('New passwords must contain 12–128 characters.')
    existing=db.session.scalar(select(Staff).where(Staff.username==username))
    if existing and existing.id!=sid:raise ValueError('This username is already used.')
    if not s:s=Staff(id=str(uuid.uuid4()),version=0);db.session.add(s)
-   s.username=username;s.name=name;s.role=role;s.active=active;s.version+=1
+   s.username=username;s.name=name;s.role='store_manager' if role=='store_keeper' else role;s.active=active;s.version+=1
    if password:s.password_hash=generate_password_hash(password)
    db.session.commit();return jsonify(ok=True)
   except ValueError as e:db.session.rollback();return jsonify(error=str(e)),400
@@ -76,13 +74,19 @@ def install(m):
    if not isinstance(entries,list) or any(not isinstance(x,dict) for x in entries) or len(entries)!=len(current) or {x.get('size') for x in entries}!={x.size for x in current}:raise ValueError('Keep the existing size configuration; ask an admin to add or remove sizes.')
    for x in entries:
     row=next(v for v in current if v.size==x['size'])
-    if type(x.get('stock'))is not int or not 0<=x['stock']<=100000 or x.get('enabled')!=row.enabled:raise ValueError('Use stock from 0–100000; store keepers cannot change enabled sizes.')
+    if type(x.get('stock'))is not int or not 0<=x['stock']<=100000 or x.get('enabled')!=row.enabled:raise ValueError('Use stock from 0–100000; store managers cannot change enabled sizes.')
    image=d.get('image',p.image)
    if image!=p.image:
-    if not isinstance(image,str) or not image.startswith('/media/') or not db.session.get(m.Media,image.removeprefix('/media/')):raise ValueError('Upload a product cover image first.')
+    if m.media_item({'url':image})['kind']!='image':raise ValueError('Choose an image for the cover.')
    # Reject extra properties rather than silently accepting attempted price/content edits.
-   if set(d)-{'id','sizes','image'}:return jsonify(error='Only stock and cover images may be changed here.'),403
+   gallery=[m.media_item(x) for x in d['gallery']] if 'gallery' in d else None
+   if gallery is not None and len(gallery)>12:raise ValueError('Maximum 12 gallery items.')
+   if set(d)-{'id','sizes','image','gallery'}:return jsonify(error='Only stock and cover images may be changed here.'),403
    for x in entries:next(v for v in current if v.size==x['size']).stock=x['stock']
+   if gallery is not None:
+    merch=db.session.get(m.Merch,p.id)
+    if merch:merch.content={**merch.content,'gallery':gallery}
+    else:db.session.add(m.Merch(product_id=p.id,content={'gallery':gallery}))
    p.image=image;m.sync_stock(p);db.session.commit();return jsonify(p.data(private=True))
   except (ValueError,TypeError,KeyError,StopIteration) as e:db.session.rollback();return jsonify(error=str(e) or 'Invalid stock values.'),400
 
@@ -106,6 +110,15 @@ def install(m):
     if mode!='test' and o.status in ['Confirmed','Shipped','Delivered']:confirmed+=o.total
     data.append([meta.number if meta else o.id,stamp(o.created),o.customer.get('name',''),o.status,mode,meta.payment_method if meta else '',o.total])
    note+=f' {len(data)} orders/enquiries; {tests} test orders. Confirmed non-test order value: INR {confirmed}. This is not a payment-settlement report.'
+  elif kind=='counter':
+   headers=['Receipt','Date (IST)','Recorded by','Method','Units','Total (INR)'];data=[]
+   for invoice in rows_for(m.Invoice,start,end):data.append([invoice.number,stamp(invoice.created),invoice.staff_name,invoice.method,sum(x['qty'] for x in invoice.items),invoice.total])
+   note='Counter sales recorded by staff, using IST dates. These are payments declared received at the counter; this is not a bank settlement or GST tax invoice report.'
+  elif kind=='movements':
+   headers=['Date (IST)','Product','Size','Change','Operation','Reference'];data=[]
+   for move in rows_for(m.StockMovement,start,end):
+    p=db.session.get(m.Product,move.product_id);data.append([stamp(move.created),p.name if p else move.product_id,move.size,move.delta,move.kind,move.reference])
+   note='Audit of incoming scans and counter-sale deductions. Direct stock edits and website order transitions are not included in this scan ledger.'
   elif kind=='inventory':
    headers=['Product code','Product','Size','Stock','Visibility','Stock status'];data=[]
    for p,v in db.session.execute(select(m.Product,m.ProductSize).join(m.ProductSize).where(m.ProductSize.enabled==True).order_by(m.Product.name,m.ProductSize.position).limit(5001)):
@@ -129,7 +142,7 @@ def install(m):
     g['seconds']+=e.seconds;g['last']=e.stage
    for sid,g in groups.items():data.append([stamp(g['start']),sid[:8],' > '.join(g['path']),g['seconds'],g['last']])
    note='Consented activity within the chosen dates. Session start is the first recorded event in this range. Active time excludes idle/background time.'
-  else:raise ValueError('Choose orders, inventory, restock, traffic or journey.')
+  else:raise ValueError('Choose orders, counter, movements, inventory, restock, traffic or journey.')
   if len(data)>5000:raise ValueError('More than 5000 rows. Choose a smaller report.')
   return headers,data,note
  m.report_data=report_data

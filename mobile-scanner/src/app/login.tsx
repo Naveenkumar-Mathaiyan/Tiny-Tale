@@ -1,0 +1,6 @@
+import React,{useState} from 'react';
+import {Text} from 'react-native';
+import {Redirect,router} from 'expo-router';
+import {useSession} from '../session';
+import {Page,Field,Action,styles} from '../components/UI';
+export default function Login(){const session=useSession();const [base,setBase]=useState('https://tiny-tale-admin.onrender.com'),[username,setUsername]=useState(''),[password,setPassword]=useState(''),[error,setError]=useState(''),[busy,setBusy]=useState(false);if(session.login)return <Redirect href="/staff/stock"/>;return <Page><Text style={styles.title}>tiny tale</Text><Text style={styles.text}>Staff scanner & billing</Text><Text style={styles.muted}>Use the staff account created by your Super Admin. Owner login is available in the web admin.</Text><Field label="Admin service URL" value={base} onChange={setBase}/><Field label="Staff username" value={username} onChange={setUsername}/><Field label="Password" value={password} onChange={setPassword} secure/><Action title={busy?'Signing in…':'Sign in'} disabled={busy||!username||!password} onPress={async()=>{setBusy(true);setError('');try{await session.signin(base,username,password);setPassword('');router.replace('/staff/stock')}catch(e){setError((e as Error).message)}finally{setBusy(false)}}}/>{!!error&&<Text style={styles.error}>{error}</Text>}</Page>}

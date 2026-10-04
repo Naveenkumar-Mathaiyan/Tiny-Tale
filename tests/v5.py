@@ -10,7 +10,7 @@ assert admin.post('/api/admin/accounts',json={'username':'keeper1','name':'Dupli
 assert admin.post('/api/admin/accounts',json={'username':'boss','name':'Boss','role':'super_admin','password':'admin-password-123','active':True},headers=ah).status_code==400
 keeper=app.test_client();r=keeper.post('/api/admin/login',json={'username':'keeper1','password':'keeper-password-123'});assert r.status_code==200,r.json
 kh={'X-CSRF-Token':r.json['csrf']}
-assert r.json['user']['role']=='store_keeper'
+assert r.json['user']['role']=='store_manager'
 for path in ['analytics','journey','marketing','orders','coupons','banners','restock','numbering','business','email-status','accounts','reports?type=orders&from=2026-01-01&to=2026-01-02']:
  assert keeper.get('/api/admin/'+path).status_code==403,path
  assert keeper.post('/api/admin/'+path,json={},headers=kh).status_code==403,path

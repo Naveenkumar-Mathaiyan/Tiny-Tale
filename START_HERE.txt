@@ -1,68 +1,86 @@
-TINY TALE v6 - DESIGN, CUSTOM LINKS AND SCROLLING OFFERS
+TINY TALE VERSION 7 - START HERE
+===============================
+This is an UPDATE for your existing Tiny Tale project.
+It includes the website/admin changes and Android/iOS staff scanner SOURCE.
+It does not contain an installable Android APK or iOS IPA.
 
-This ZIP updates your EXISTING project. Keep the old Git folder, database,
-product images and working Brevo settings. Do not start an empty repository.
+STEP 1 - UPDATE YOUR ORIGINAL GIT FOLDER
+1. Extract the ENTIRE ZIP to a short folder such as C:\TinyTale-v7.
+2. Close your local Tiny Tale app windows.
+3. Back up your original project folder and database before upgrading.
+4. Double-click APPLY-UPDATE.bat in the extracted ZIP.
+5. Enter the ORIGINAL folder you previously used for git push.
+   Example: C:\Users\NaveenkumarMathaiya\Downloads\Tiny_Tale_Login_Fix_old
+   The correct folder contains app.py and your existing Git repository.
+6. The script copies code into that folder, retaining existing database,
+   environment, uploaded files and Git history. Do not use the extracted
+   release as a new Git repository. Existing product images are reused.
 
-1. Extract the ENTIRE ZIP into a new folder in Downloads.
-2. Close any local Tiny Tale app windows.
-3. Double-click APPLY-UPDATE.bat in the extracted folder.
-4. Choose the ORIGINAL repository folder containing app.py and .git.
-   It may be:
-   C:\Users\NaveenkumarMathaiya\Downloads\Tiny_Tale_Login_Fix_old
-   or C:\Users\NaveenkumarMathaiya\Downloads\Tiny_Tale_Login_Fix
-   Use the folder where your previous git push worked.
-   Press Enter only when the shown default folder is correct.
-5. Open Command Prompt IN THAT ORIGINAL Git folder. Run:
+STEP 2 - PUSH THE UPDATED CODE
+Open Command Prompt in your ORIGINAL Git folder and run:
 
-   git status
-   git add .
-   git diff --cached --stat
-   git commit -m "Improve store design, banner links and scrolling offers"
-   git push origin main
+git status
 
-   Check for experience.py, static/experience.css, store-v6.js, admin-v6.js,
-   plus the updated app.py, features.py, enhancements.py, store.js and HTML.
-   Do not commit your API key, local credentials or database files.
-6. Render: deploy latest commit on BOTH tiny-tale-store and tiny-tale-admin.
-   Keep the current working Brevo values and shared DATABASE_URL.
-   There is no new API key or secret for this release.
-7. Wait for both services to be Live. Each /health URL must show:
-   6.0-store-experience
-8. Press Ctrl+F5 on both websites to reload the new scripts/styles.
-9. Owner login: leave Username blank, use your existing admin password.
+git add app.py operations.py enhancements.py management.py static/admin.html static/index.html static/admin.js static/admin-v5.js static/admin-v7.js static/store-v7.js static/operations.css mobile-scanner START_HERE.txt README.md UPDATE_GUIDE.md VERIFICATION.md tests
 
-NEW ADMIN OPTIONS
-- Storefront content > Scrolling offer strip: edit messages/optional links,
-  choose speed, enable and Publish strip. Refresh the customer store.
-- Offer banners > Button destination > Custom URL / store link.
-  Examples: /?product=2#collection, #collection, /policies,
-  or https://your-website.com/offer
-  Keep button text and a destination together, or choose No button.
-  Optional: Open button destination in a new tab.
-- On a phone, tap Sections to open the admin menu.
+git diff --cached --stat
 
-NEW CUSTOMER FEATURES
-Recently viewed items, clear history, size/price/available-now filters,
-gallery thumbnails/previous/next controls, product PIN estimates,
-favourites count and free-delivery progress in the bag.
-The refreshed design uses cream and teal across both applications.
+git commit -m "Add Tiny Tale scanner billing and storefront improvements"
 
-TEST AFTER DEPLOYMENT
-Customer: real OTP email, product size selection, filters, cart, coupon,
-PIN estimate and simulated checkout. Admin: keeper login restriction,
-stock/media updates, custom banner link, scrolling strip and PDF/Excel report.
-Local browser tests use mock email; you still need to verify real delivery.
-Payments remain simulated. Full test scope is in VERIFICATION.md.
+git push origin main
 
-PREVIEWS contains screenshots from local QA. They show example data,
-not your live database. They do not need to be copied into your repository.
-The updater copies only Tiny_Tale_Login_Fix, not PREVIEWS.
+Review the staged filenames before committing. Do not add API keys,
+.env files, local databases, virtual environments or node_modules.
+The mobile folder includes its own ignore rules for generated dependencies.
 
-For local use without an existing virtual environment, install Python and
-run from the ORIGINAL project folder:
-   py -m venv .venv
-   .venv\Scripts\python.exe -m pip install -r requirements.txt
-Then use start-admin.bat / start-store.bat.
-Render deployment does not require running the app locally.
+STEP 3 - DEPLOY YOUR TWO EXISTING RENDER SERVICES
+1. Open your EXISTING tiny-tale-admin service on Render.
+2. Select Manual Deploy > Deploy latest commit if auto-deploy did not run.
+3. Do the same for your EXISTING tiny-tale-store service.
+4. Both must keep their existing shared DATABASE_URL.
+5. Keep the working Brevo settings on tiny-tale-store unchanged.
+6. Do not create a new Blueprint or a replacement database for this update.
+7. Open each service's /health URL. Version should be 7.0-stock-billing.
+8. Hard refresh browser pages (Ctrl+F5), then sign in again.
+   Older Store Keeper accounts become Store Manager and are signed out.
 
-See README.md and UPDATE_GUIDE.md for feature explanations.
+STEP 4 - SET UP YOUR ADMIN
+- Homepage introduction: edit text/button, add 1-8 welcome images,
+  remove old images, and choose auto-advance time (4-30 seconds).
+- Offer banners: publish images/GIFs/videos; buttons/links remain optional.
+- Product categories: add or rename categories. Store filters update too.
+- Products & stock: upload multiple images/videos; choose an image thumbnail.
+- Product photos & videos: search for the product; arrange its gallery.
+- Staff accounts: create Store Manager, Manager, Supervisor or Billing staff.
+- Codes & label printing: generate missing product-SIZE codes, customize
+  codes if needed, select variants/copies, preview and print A4 at actual size.
+  Internal Code 128 + QR works immediately. Licensed GS1 GTIN-13 is optional.
+  Test one printed label before printing your full batch.
+- Receive stock: scan/type a label, enter quantity, add to batch, then confirm.
+- Counter billing: scan labels into a bill, record payment ALREADY collected,
+  finalize once, and print/download the receipt. Stock deducts at finalization.
+- Reports: choose counter sales or scanned movements, inclusive IST dates,
+  then Generate. Preview PDF and download PDF/Excel.
+
+IMPORTANT BILLING DETAILS
+Counter billing records in-person payments; it does not collect money through
+an online gateway and does not create a GST tax invoice. Website payments
+remain simulated and website checkout has no Cash on Delivery.
+Scanned stock movements and counter receipts share the existing database.
+Stock changes appear in the website's existing refresh cycle (up to 20 sec).
+If a save response is lost, RETRY THE SAVED BATCH. Do not enter it as a new sale.
+
+STEP 5 - ANDROID / IPHONE STAFF APP
+The source is in mobile-scanner. Read mobile-scanner\README.md.
+Create a staff account in your web admin BEFORE trying the app.
+Use the ADMIN URL (https://tiny-tale-admin.onrender.com), not the store URL.
+An Expo/EAS build and signing setup is needed to produce installable apps.
+Android preview builds produce an APK. iPhone installation needs Apple
+signing/provisioning and registered test devices or TestFlight distribution.
+No mobile signing credentials or app-store accounts are included in this ZIP.
+
+VERIFICATION
+Read VERIFICATION.md for checks completed and limits. Real Render/Brevo,
+PostgreSQL production concurrency, Windows updater execution, signed native
+installation, device cameras and physical printers still require your testing.
+The PREVIEWS folder shows a disposable test store, not your production data.

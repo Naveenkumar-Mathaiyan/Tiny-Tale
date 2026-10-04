@@ -88,6 +88,7 @@ def install(m):
    if not db.session.get(m.Media,url.removeprefix('/media/')):raise ValueError('Image not found.')
   else:raise ValueError('Use uploaded media or a bundled product image.')
   return dict(url=url,kind=kind,alt=str(d.get('alt',''))[:150])
+ m.media_item=media_item
  old_data=m.Product.data
  def product_data(p,private=False):
   d=old_data(p,private);row=db.session.get(Merch,p.id);extra=row.content if row else {}
@@ -103,9 +104,9 @@ def install(m):
   try:
    if not isinstance(d.get('gallery'),list) or len(d['gallery'])>12:raise ValueError('Use at most 12 gallery items.')
    data=dict(gallery=[media_item(x) for x in d['gallery']],**{k:str(d.get(k,''))[:6000] for k in ['details','care','material']})
-   if m.staff_identity()['role']=='store_keeper':
+   if m.staff_identity()['role'] in ['store_keeper','store_manager','manager','supervisor']:
     old=row.content if row else {}
-    if any(k in d and d[k]!=old.get(k,'') for k in ['details','care','material']):return jsonify(error='Store keepers may update media only.'),403
+    if any(k in d and d[k]!=old.get(k,'') for k in ['details','care','material']):return jsonify(error='Store managers may update media only.'),403
     data.update({k:old.get(k,'') for k in ['details','care','material']})
   except ValueError as e:return jsonify(error=str(e)),400
   if row:row.content=data

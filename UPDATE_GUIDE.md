@@ -1,30 +1,11 @@
-# Update your existing deployment
+# Updating Tiny Tale
 
-Extract the release ZIP and run APPLY-UPDATE.bat. Select your original Git repository containing app.py and .git. The update reuses static/images and the existing database; it is not a new empty-project installation.
+Follow START_HERE.txt in order. Use the existing Git folder and the existing two Render services; keep their database and working Brevo settings. The update script excludes Git history, .env files, virtual environments, instance data and database files. It does not delete your existing image directory. Back up the project and database before updating.
 
-Commit and push the update, then deploy latest commit on both tiny-tale-admin and tiny-tale-store in Render. Keep working Brevo and database environment settings. Both health URLs must show 6.0-store-experience. Press Ctrl+F5 in the browser after deployment.
+New runtime file: `operations.py`. Existing files changed: `app.py`, `management.py`, `enhancements.py`, admin/store HTML and admin scripts. New frontend files: `admin-v7.js`, `store-v7.js`, `operations.css`. The `mobile-scanner` directory is a separate Expo source project; Render still runs the Python app from the repository root.
 
-Owner login: username blank, existing admin password. Store keeper accounts remain restricted to stock and product media. Only Admin/Super admin can edit offer banners and the scrolling strip.
+The startup migration creates new category, variant-code, native-token, invoice, operation and stock-movement tables. Existing products, assets, variants, enquiries, coupons, business settings and email configuration remain in place. Old Store Keeper accounts become Store Manager. All currently signed-in legacy stock staff must sign in again.
 
-## Custom banner links
+After both deployments reach health version `7.0-stock-billing`, refresh the store/admin and test one product, one small stock arrival, one counter bill, PDF labels and your own real email OTP delivery. Printed labels must match your production codes; PREVIEWS contains test screenshots only.
 
-Storefront content > Offer banners > Add/Edit > Button destination > Custom URL / store link.
-Examples:
-- /?product=2#collection — opens the product whose ID is 2.
-- #collection — scrolls to products.
-- #about — scrolls to About Tiny Tale.
-- /policies — opens policies.
-- https://your-website.com/offer — opens your external HTTPS page.
-The path must exist on the destination site. Product dropdown shortcuts avoid typing product IDs. Select No button for an image-only banner. Optional Open destination in a new tab checkbox.
-
-## Top scrolling strip
-
-Storefront content > Scrolling offer strip. Edit messages and optional destinations, choose speed, enable and Publish strip. Refresh the customer store to see it. Use login as a destination to open email login. This text does not change the actual discount: manage coupons separately. Free delivery still begins at INR 999 subtotal before discounts.
-
-## Customer features to check
-
-Filter by size/price/availability and clear filters; open a product and swipe or use gallery controls; check a delivery PIN; add to bag and view free-delivery progress; browse recently viewed items or clear history; login via real OTP and complete the existing test checkout. Recent history and favourites are stored in that browser, not synced across devices.
-
-## Admin mobile use
-
-Tap Sections to open the grouped menu, then choose a screen. Products & stock uses cards on narrow screens. Existing financial permissions and report exports remain unchanged.
+If rollback is needed, stop scanner/counter writes, retain the upgraded database and redeploy your previous Git commit. New tables are additive. Older versions do not recognize new staff roles; only the owner/Admin should use an older build. Do not restore an old database snapshot over new sales without reconciling those sales and stock movements first.

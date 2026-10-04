@@ -92,7 +92,7 @@ def err(e): return jsonify(error=str(e.description)),e.code
 @app.route('/')
 def home(): return send_from_directory('static','admin.html' if ROLE=='admin' else 'index.html')
 @app.get('/health')
-def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='6.0-store-experience',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
+def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='7.0-stock-billing',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
 def admin(fn):
  @wraps(fn)
  def wrapped(*a,**k):
@@ -141,7 +141,10 @@ def manage_products():
   enabled=[v for v in sizes if v.get('enabled',True)]
   if not enabled or (any(v['size']=='One size' for v in enabled) and len(enabled)>1): raise ValueError()
   if not name or len(name)>100 or price<1 or not 0<sale<=price or stock<0 or stock>100000 or price>1000000: raise ValueError()
-  if not (image.startswith('/static/images/') or re.fullmatch(r'/media/[a-f0-9-]+',image)): raise ValueError('Upload an image first')
+  if media_item({'url':image})['kind']!='image': raise ValueError('Choose an image cover')
+  gallery=[media_item(x) for x in d.get('gallery',[])] if 'gallery' in d else None
+  if gallery is not None and len(gallery)>12:raise ValueError('Maximum 12 gallery items')
+  if not db.session.get(Category,str(d.get('category','Accessories'))):raise ValueError('Choose an existing category')
  except (KeyError,ValueError,TypeError) as e: return jsonify(error='Enter valid name, prices, stock and an uploaded image.'),400
  p=db.session.scalar(select(Product).where(Product.id==d.get('id')).with_for_update()) if d.get('id') else Product(id=str(uuid.uuid4()))
  if p is None: abort(404)
@@ -151,6 +154,11 @@ def manage_products():
  for v in sizes:
   row=db.session.get(ProductSize,(p.id,v['size'])) or ProductSize(product_id=p.id,size=v['size'])
   row.stock=v['stock']; row.enabled=v.get('enabled',True); row.position=SIZE_OPTIONS.index(v['size']); db.session.add(row)
+ if gallery is not None:
+  merch=db.session.get(Merch,p.id)
+  content={**(merch.content if merch else {}),'gallery':gallery}
+  if merch:merch.content=content
+  else:db.session.add(Merch(product_id=p.id,content=content))
  sync_stock(p); db.session.commit(); return jsonify(p.data(private=True))
 @app.post('/api/admin/upload')
 @admin
@@ -261,4 +269,6 @@ from management import install as install_management
 install_management(sys.modules[__name__])
 from experience import install as install_experience
 install_experience(sys.modules[__name__])
+from operations import install as install_operations
+install_operations(sys.modules[__name__])
 if __name__=='__main__': app.run(host='127.0.0.1',port=int(os.getenv('PORT','5000')))

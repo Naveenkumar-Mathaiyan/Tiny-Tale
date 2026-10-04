@@ -1,28 +1,47 @@
-# Tiny Tale v6 — Store experience
+# Tiny Tale v7
 
-Update for the existing Flask storefront and admin on Render. Keep your current project folder, images, database and environment settings. Read START_HERE.txt in the release ZIP.
+An additive update for the existing Flask storefront and admin, with an Expo Android/iOS **staff scanner source project**. Uses the existing shared PostgreSQL database on Render. Website payment methods remain simulations; the staff billing feature records payments collected separately at the counter.
 
-## New in this build
+Read START_HERE.txt for the exact Windows update, Git push and Render steps. Read `mobile-scanner/README.md` for mobile build instructions. This update intentionally reuses existing `static/images` and does not distribute environment secrets, databases or installed dependencies.
 
-- Cream, sage and deep teal design shared by the customer store and admin, with responsive headers, cards, forms and galleries.
-- Scrolling offers/highlights at the top of the customer store. Admins can publish 1–8 messages, optional links, visibility and speed under Storefront content > Scrolling offer strip. Pause control, hover/focus pause, and reduced-motion support are included. Strip messages are display content; they do not change coupon/shipping rules.
-- Offer banner buttons can use a product shortcut, a custom store path, an anchor, login, or a full HTTPS URL. Buttons remain optional. New-tab behaviour is configurable. Unsafe schemes and protocol-relative links are rejected.
-- Smooth anchor scrolling, dialog entry, collection filtering and admin section changes. Rapid admin navigation is serialized to show the final selection. External full-page navigation remains normal browser navigation.
-- Customer features: recently viewed products (browser-local, clearable), age/size, maximum price and in-stock filters, result counts, favourites count, gallery thumbnails and previous/next controls, product-level PIN estimate, and free-delivery progress in the bag. Delivery estimates remain indicative PIN-based estimates, not live courier serviceability.
-- Background stock polling avoids open dialogs and active inputs; unchanged data does not repaint the page.
-- Mobile admin: collapsible Sections menu and stock/product cards with visible Edit controls.
+## Customer storefront
 
-## Existing features retained
+- Admin-managed homepage introduction, optional button and 1–8 welcome images.
+- Automatic welcome/offer slideshows with pause controls, reduced-motion handling and complete images rather than zoom cropping. Offer videos pause automatic advancement while playing.
+- Aligned search/sort/age/price filters and categories populated from the shared database.
+- Existing OTP login, gallery, favourites, size-specific availability, restock requests and simulated checkout preserved.
 
-Owner/Admin/Store keeper permissions, stock by size, One Size products, restricted gallery/stock editing, media and video uploads, restock requests, coupons, analytics, order numbering and PDF/Excel reports. Store keepers cannot change banner links or the offer strip. Owner login uses the existing password with username left blank.
+## Admin and staff
 
-No new API key or secret is required. Keep your working Brevo settings and shared DATABASE_URL. Deploy both Render services and hard refresh. Health version: 6.0-store-experience. The appearance setting is added through the existing settings table; old records are preserved.
+- Add/rename product categories; rename updates product categories as well.
+- Multiple images/GIFs/videos directly in product editing, with image thumbnail selection; cover and gallery save atomically.
+- Searchable product picker in the gallery editor. Existing gallery ordering remains available.
+- Internal product-size codes, Code 128 + QR labels, optional licensed GTIN-13/EAN-13 and bulk A4 PDF printing. Codes stay out of customer product responses.
+- Incoming stock batches, server-calculated counter receipts, overselling prevention, operation ledger and idempotent retries.
+- Date-filtered counter sales and scanned stock movements added to PDF/Excel reports.
+- Expiring staff bearer sessions for native clients; tokens are stored hashed in the database and in SecureStore on the device. Account edits/disabling invalidate web and native sessions.
 
-## Validation
+| Role | Access |
+| --- | --- |
+| Super Admin | All sections and staff creation; existing owner login |
+| Admin | Full operations/settings/reports, all counter receipts; no staff administration |
+| Store Manager | Existing stock/media, incoming scans, stock lookup, label printing |
+| Manager | Store Manager access plus counter sales and own receipts |
+| Supervisor | Store Manager access plus counter sales and own receipts |
+| Billing staff | Stock lookup, counter sales and own receipts |
 
-Backend regressions and permissions: python tests/v6.py; python tests/v4.py; python tests/email_errors.py.
-Frontend logic: node tests/frontend.cjs. Optional jsdom: node tests/dom.cjs.
-Migration: TINY_TALE_PREVIOUS_BUILD=/path/to/previous python tests/upgrade.py.
-Browser harness: tests/browser.cjs requires optional Playwright, disposable local store/admin servers and local mock mail. Never use test fixture passwords/OTP bypasses in production. The release application contains no OTP bypass; the QA mock exists only in the temporary test server outside the release.
+Manager/Supervisor permissions deliberately exclude website orders, financial analytics, price changes, policies and staff account creation. Legacy `store_keeper` accounts migrate to `store_manager` and their sessions are revoked.
 
-Desktop/mobile Chromium QA completed locally with SQLite and mock email, including OTP continuation and a simulated UPI checkout. Live Render/PostgreSQL, real Brevo delivery and Windows updater execution are not covered by these local checks. Payments remain simulated. PREVIEWS screenshots show the local QA build, not your live store; dummy QA data is not included in your database update.
+## Inventory and transaction behaviour
+
+Labels identify product **and size**, not just category. Category totals are derived from the corresponding product sizes. A scan looks up a variant and adds a confirmed quantity to a batch; it does not immediately change inventory. Finalizing an arrival adds units; finalizing a counter sale deducts units once and creates a POS receipt. Repeated identical request IDs return the original result. Changed payloads with the same ID are rejected. Disabled variants and hidden products cannot be scanned into operations.
+
+The server locks product rows and enabled variants in stable order and updates total stock within the same database transaction. Sale prices come from the server; a changed total rejects the whole sale for cashier review. Counter receipts use a separate global `POS-YYMMDDXXXXXX` sequence. Website order numbering/settings remain unchanged. Website enquiries/test orders retain their existing confirmation/cancellation stock flow.
+
+Counter records are not settlement confirmations or GST invoices. No payment-provider integration, taxes, refunds/voids, offline sales, Bluetooth thermal-printer SDK or returns inventory flow has been added. Receipt printing uses PDF/browser printing or the native platform print dialog. Native access requires connectivity; saved batches support retry rather than unverified offline stock changes.
+
+Internal codes are business-local identifiers. For registered retail identifiers use GTINs assigned through [GS1](https://www.gs1.org/services/activate/how-to-create-a-GTIN). The app validates GTIN-13 length/check digit and requires the administrator to confirm assignment; it cannot independently verify a GS1 licence. It does not claim that the internal QR labels implement GS1 Digital Link.
+
+## Development checks
+
+Install `requirements.txt` plus `pypdf` for test inspection, then run `tests/v7.py`, `tests/v6.py`, `tests/v4.py` and `tests/email_errors.py`. Tests use disposable SQLite databases and mock email delivery. For migration validation set `TINY_TALE_PREVIOUS_BUILD` to the v6 source and run `tests/upgrade.py`. Browser QA and native source checks are described in VERIFICATION.md. Deploy through the two existing Render services; do not replace your existing database.
