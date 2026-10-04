@@ -7,6 +7,7 @@ from flask import request, jsonify, send_file
 from sqlalchemy import select, text, delete
 from sqlalchemy.exc import IntegrityError
 from PIL import Image
+from experience import safe_destination
 
 def install(m):
  app,db=m.app,m.db
@@ -123,9 +124,10 @@ def install(m):
    return jsonify(ok=True)
   try:
    media=media_item(d);link=str(d.get('link','')).strip();button=str(d.get('button','')).strip()
-   if link and not re.fullmatch(r'(?:#(?:collection|about|care)|/policies|/\?product=[A-Za-z0-9-]+#collection|login)',link):raise ValueError('Choose #collection, #about, #care, /policies, login or a product link /?product=ID#collection.')
+   link=safe_destination(link)
+   if type(d.get('new_tab',False))is not bool:raise ValueError('Choose whether the button opens a new tab.')
    if bool(button)!=bool(link):raise ValueError('Choose both a button label and destination, or leave both empty for an image-only banner.')
-   value=media|dict(title=str(d.get('title',''))[:100],subtitle=str(d.get('subtitle',''))[:250],button=button[:40],link=link,active=d.get('active') is True)
+   value=media|dict(title=str(d.get('title',''))[:100],subtitle=str(d.get('subtitle',''))[:250],button=button[:40],link=link,new_tab=d.get('new_tab',False),active=d.get('active') is True)
   except ValueError as e:return jsonify(error=str(e)),400
   if row:row.content=value
   else:row=Banner(id=str(uuid.uuid4()),content=value);db.session.add(row)

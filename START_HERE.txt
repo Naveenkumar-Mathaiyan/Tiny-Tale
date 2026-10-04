@@ -1,55 +1,68 @@
-TINY TALE v5 - ADMIN STUDIO UPDATE
+TINY TALE v6 - DESIGN, CUSTOM LINKS AND SCROLLING OFFERS
 
-This is an UPDATE for your existing project. It reuses your existing product
-images and database. Do not create an empty repository or delete the old folder.
+This ZIP updates your EXISTING project. Keep the old Git folder, database,
+product images and working Brevo settings. Do not start an empty repository.
 
 1. Extract the ENTIRE ZIP into a new folder in Downloads.
 2. Close any local Tiny Tale app windows.
 3. Double-click APPLY-UPDATE.bat in the extracted folder.
-4. When asked for Repository folder, use your EXISTING folder containing app.py
-   and .git. It may be:
+4. Choose the ORIGINAL repository folder containing app.py and .git.
+   It may be:
    C:\Users\NaveenkumarMathaiya\Downloads\Tiny_Tale_Login_Fix_old
    or C:\Users\NaveenkumarMathaiya\Downloads\Tiny_Tale_Login_Fix
-   Use the one where your earlier git push worked. Press Enter if the shown
-   default is correct. The updater retains settings, database and Git history.
-5. Open Command Prompt in that existing repository folder. Run:
+   Use the folder where your previous git push worked.
+   Press Enter only when the shown default folder is correct.
+5. Open Command Prompt IN THAT ORIGINAL Git folder. Run:
 
    git status
    git add .
    git diff --cached --stat
-   git commit -m "Improve admin navigation, staff access and reports"
+   git commit -m "Improve store design, banner links and scrolling offers"
    git push origin main
 
-   Check that the staged files contain app.py, management.py, requirements.txt,
-   enhancements.py, features.py and static/admin-v5.js + admin-v5.css.
+   Check for experience.py, static/experience.css, store-v6.js, admin-v6.js,
+   plus the updated app.py, features.py, enhancements.py, store.js and HTML.
    Do not commit your API key, local credentials or database files.
-6. In Render deploy latest commit on BOTH tiny-tale-admin and tiny-tale-store.
-   Keep your working Brevo environment values and existing DATABASE_URL.
-   No new API key is required. New requirements install during the Render build.
-7. Wait until BOTH services are Live. Open each service /health URL and check:
-   version: 5.0-admin-studio
-8. Open the admin site and press Ctrl+F5 to reload the new scripts/styles.
-   Owner login: leave Username blank and use your existing admin password.
-9. Administration > Staff accounts > Create staff account > Store keeper.
-   Use a unique username and password of at least 12 characters.
-   Test that login separately: it must show only stock and product media.
+6. Render: deploy latest commit on BOTH tiny-tale-store and tiny-tale-admin.
+   Keep the current working Brevo values and shared DATABASE_URL.
+   There is no new API key or secret for this release.
+7. Wait for both services to be Live. Each /health URL must show:
+   6.0-store-experience
+8. Press Ctrl+F5 on both websites to reload the new scripts/styles.
+9. Owner login: leave Username blank, use your existing admin password.
 
-BANNER EXAMPLE
-Offer banners > upload Knot Jabla image > destination Knot Jabla > button text
-Get Knot Jabla Offer > Save. Choose No button for an image-only offer.
-The dropdown creates the product link for you.
+NEW ADMIN OPTIONS
+- Storefront content > Scrolling offer strip: edit messages/optional links,
+  choose speed, enable and Publish strip. Refresh the customer store.
+- Offer banners > Button destination > Custom URL / store link.
+  Examples: /?product=2#collection, #collection, /policies,
+  or https://your-website.com/offer
+  Keep button text and a destination together, or choose No button.
+  Optional: Open button destination in a new tab.
+- On a phone, tap Sections to open the admin menu.
 
-REPORTS
-Reports & downloads > choose report + From/To dates > Generate report.
-View the PDF and download Excel/PDF. Dates use IST. Inventory is current stock,
-not historical stock. Test payments are not real revenue.
+NEW CUSTOMER FEATURES
+Recently viewed items, clear history, size/price/available-now filters,
+gallery thumbnails/previous/next controls, product PIN estimates,
+favourites count and free-delivery progress in the bag.
+The refreshed design uses cream and teal across both applications.
 
-If no local virtual environment exists, local use requires Python installed.
-From the existing project directory run:
+TEST AFTER DEPLOYMENT
+Customer: real OTP email, product size selection, filters, cart, coupon,
+PIN estimate and simulated checkout. Admin: keeper login restriction,
+stock/media updates, custom banner link, scrolling strip and PDF/Excel report.
+Local browser tests use mock email; you still need to verify real delivery.
+Payments remain simulated. Full test scope is in VERIFICATION.md.
+
+PREVIEWS contains screenshots from local QA. They show example data,
+not your live database. They do not need to be copied into your repository.
+The updater copies only Tiny_Tale_Login_Fix, not PREVIEWS.
+
+For local use without an existing virtual environment, install Python and
+run from the ORIGINAL project folder:
    py -m venv .venv
    .venv\Scripts\python.exe -m pip install -r requirements.txt
-Then use your existing start-admin.bat / start-store.bat.
+Then use start-admin.bat / start-store.bat.
 Render deployment does not require running the app locally.
 
-See README.md and UPDATE_GUIDE.md for permissions and analytics explanations.
-See VERIFICATION.md for completed checks and remaining test limits.
+See README.md and UPDATE_GUIDE.md for feature explanations.

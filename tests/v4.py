@@ -23,7 +23,7 @@ assert admin.post('/api/admin/merch/1',json=extra|{'gallery':[{'url':'javascript
 b=asset|dict(title='Login offer',subtitle='5%',button='Login',link='login',active=True)
 r=admin.post('/api/admin/banners',json=b,headers=ah);assert r.status_code==200
 assert len(shop.get('/api/banners').json)==1
-assert admin.post('/api/admin/banners',json=b|{'link':'https://evil.test'},headers=ah).status_code==400
+assert admin.post('/api/admin/banners',json=b|{'link':'javascript:alert(1)'},headers=ah).status_code==400
 assert admin.post('/api/admin/banners',json=r.json|{'active':False},headers=ah).status_code==200
 assert shop.get('/api/banners').json==[]
 # Sequence cannot decrease. Existing numbers stay immutable.

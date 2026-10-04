@@ -1,15 +1,28 @@
-# Tiny Tale v5 — Admin studio
+# Tiny Tale v6 — Store experience
 
-An update for the existing Flask storefront/admin on Render, using the same shared database.
-Start with START_HERE.txt in the release ZIP. Keep your existing Git repository, .env, database, uploaded media and static/images.
+Update for the existing Flask storefront and admin on Render. Keep your current project folder, images, database and environment settings. Read START_HERE.txt in the release ZIP.
 
-New: grouped management navigation; owner/admin/store keeper roles; stock/media-only permissions enforced on the server; staff creation, reset/disable and immediate session revocation; clearer performance graphs and checkout-drop investigation; campaign link builder; IST session timestamps; optional banner buttons and product destination dropdown; Move left/Move right gallery controls; PDF preview and Excel/PDF exports for orders, current inventory, restock requests, traffic and journeys.
+## New in this build
 
-Owner login remains the existing ADMIN_PASSWORD / ADMIN_PASSWORD_HASH, with username left blank. Owner is the super admin and can create Admin and Store keeper accounts. An Admin cannot create accounts. A Store keeper cannot create products, change sizes, prices or descriptions, or access orders, analytics, reports, policies or banners.
+- Cream, sage and deep teal design shared by the customer store and admin, with responsive headers, cards, forms and galleries.
+- Scrolling offers/highlights at the top of the customer store. Admins can publish 1–8 messages, optional links, visibility and speed under Storefront content > Scrolling offer strip. Pause control, hover/focus pause, and reduced-motion support are included. Strip messages are display content; they do not change coupon/shipping rules.
+- Offer banner buttons can use a product shortcut, a custom store path, an anchor, login, or a full HTTPS URL. Buttons remain optional. New-tab behaviour is configurable. Unsafe schemes and protocol-relative links are rejected.
+- Smooth anchor scrolling, dialog entry, collection filtering and admin section changes. Rapid admin navigation is serialized to show the final selection. External full-page navigation remains normal browser navigation.
+- Customer features: recently viewed products (browser-local, clearable), age/size, maximum price and in-stock filters, result counts, favourites count, gallery thumbnails and previous/next controls, product-level PIN estimate, and free-delivery progress in the bag. Delivery estimates remain indicative PIN-based estimates, not live courier serviceability.
+- Background stock polling avoids open dialogs and active inputs; unchanged data does not repaint the page.
+- Mobile admin: collapsible Sections menu and stock/product cards with visible Edit controls.
 
-Reports use inclusive India-time dates (maximum 366 days, 5,000 source records). Inventory is a current snapshot, not historic stock. Traffic is retained 90 days. Reports distinguish simulated payments; order value is not a bank/payment settlement report. Excel exports are real .xlsx files and customer values are stored as text to prevent formulas. PDF previews include a new-tab link for browsers without embedded PDF viewing.
+## Existing features retained
 
-The existing OTP integration and Render environment settings remain in use. Do not replace a working Brevo key. Both Render services need the same DATABASE_URL, and the admin service needs APP_ROLE=admin. No new secret is needed for this release. New staff table creation is additive at startup.
+Owner/Admin/Store keeper permissions, stock by size, One Size products, restricted gallery/stock editing, media and video uploads, restock requests, coupons, analytics, order numbering and PDF/Excel reports. Store keepers cannot change banner links or the offer strip. Owner login uses the existing password with username left blank.
 
-Verification: python tests/v5.py; python tests/v4.py; python tests/email_errors.py; node tests/frontend.cjs; optional jsdom: node tests/dom.cjs. Migration: TINY_TALE_PREVIOUS_BUILD=/path/to/previous python tests/upgrade.py.
-Tests use disposable SQLite and mocked email. No live Render/PostgreSQL or Brevo delivery test was performed by this build environment. Browser installation was blocked by truncated downloads, so visual browser QA remains required after deployment. Windows updater has been inspected, not executed on Windows.
+No new API key or secret is required. Keep your working Brevo settings and shared DATABASE_URL. Deploy both Render services and hard refresh. Health version: 6.0-store-experience. The appearance setting is added through the existing settings table; old records are preserved.
+
+## Validation
+
+Backend regressions and permissions: python tests/v6.py; python tests/v4.py; python tests/email_errors.py.
+Frontend logic: node tests/frontend.cjs. Optional jsdom: node tests/dom.cjs.
+Migration: TINY_TALE_PREVIOUS_BUILD=/path/to/previous python tests/upgrade.py.
+Browser harness: tests/browser.cjs requires optional Playwright, disposable local store/admin servers and local mock mail. Never use test fixture passwords/OTP bypasses in production. The release application contains no OTP bypass; the QA mock exists only in the temporary test server outside the release.
+
+Desktop/mobile Chromium QA completed locally with SQLite and mock email, including OTP continuation and a simulated UPI checkout. Live Render/PostgreSQL, real Brevo delivery and Windows updater execution are not covered by these local checks. Payments remain simulated. PREVIEWS screenshots show the local QA build, not your live store; dummy QA data is not included in your database update.

@@ -92,7 +92,7 @@ def err(e): return jsonify(error=str(e.description)),e.code
 @app.route('/')
 def home(): return send_from_directory('static','admin.html' if ROLE=='admin' else 'index.html')
 @app.get('/health')
-def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='5.0-admin-studio',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
+def health(): db.session.execute(select(1)); return jsonify(ok=True,role=ROLE,version='6.0-store-experience',admin_password_configured=bool(os.getenv('ADMIN_PASSWORD') or os.getenv('ADMIN_PASSWORD_HASH')) if ROLE=='admin' else None)
 def admin(fn):
  @wraps(fn)
  def wrapped(*a,**k):
@@ -259,4 +259,6 @@ from enhancements import install as install_enhancements
 install_enhancements(sys.modules[__name__])
 from management import install as install_management
 install_management(sys.modules[__name__])
+from experience import install as install_experience
+install_experience(sys.modules[__name__])
 if __name__=='__main__': app.run(host='127.0.0.1',port=int(os.getenv('PORT','5000')))

@@ -1,15 +1,30 @@
-# Existing project update
+# Update your existing deployment
 
-Use the release ZIP START_HERE.txt and APPLY-UPDATE.bat. Apply to the original folder containing app.py and .git. This update reuses static/images; it is not a standalone replacement for an empty directory.
+Extract the release ZIP and run APPLY-UPDATE.bat. Select your original Git repository containing app.py and .git. The update reuses static/images and the existing database; it is not a new empty-project installation.
 
-Copy the code, push to the existing GitHub main branch, and deploy BOTH tiny-tale-store and tiny-tale-admin. Their existing environment variables and shared PostgreSQL database must remain unchanged. Requirements now include reportlab and openpyxl; Render installs these from requirements.txt during the build.
+Commit and push the update, then deploy latest commit on both tiny-tale-admin and tiny-tale-store in Render. Keep working Brevo and database environment settings. Both health URLs must show 6.0-store-experience. Press Ctrl+F5 in the browser after deployment.
 
-After deployment check /health on both services for version 5.0-admin-studio. Hard refresh the browser (Ctrl+F5) so the new admin-v5.js and CSS load.
+Owner login: username blank, existing admin password. Store keeper accounts remain restricted to stock and product media. Only Admin/Super admin can edit offer banners and the scrolling strip.
 
-Owner: leave username blank, use the existing admin password. Administration > Staff accounts > Create staff account. Choose Store keeper, enter a unique username and password of at least 12 characters, save. Sign out and verify that account sees only Products & stock and Product photos & videos. Editing/disabling accounts revokes existing sessions.
+## Custom banner links
 
-Banner example: Storefront content > Offer banners > upload Knot Jabla media > optional button destination Knot Jabla > button text Get Knot Jabla Offer > Save. No button: choose No button; label/link is omitted.
+Storefront content > Offer banners > Add/Edit > Button destination > Custom URL / store link.
+Examples:
+- /?product=2#collection — opens the product whose ID is 2.
+- #collection — scrolls to products.
+- #about — scrolls to About Tiny Tale.
+- /policies — opens policies.
+- https://your-website.com/offer — opens your external HTTPS page.
+The path must exist on the destination site. Product dropdown shortcuts avoid typing product IDs. Select No button for an image-only banner. Optional Open destination in a new tab checkbox.
 
-Analytics: Performance dashboard is the summary; Checkout journey shows stages and dated sessions; Product & audience insights shows products, searches and device/browser counts. Traffic sources identify where visits arrived from. Campaigns only group links tagged with a campaign name; create a promotion link on the dashboard and share it externally. “Direct / source unavailable” and “No campaign tag” are missing attribution, not proof of poor performance.
+## Top scrolling strip
 
-Reports: choose type and dates > Generate report > PDF preview and downloads. Current inventory ignores dates because it is a snapshot at generation time. Test payments are not real revenue. Country/state requires the existing optional geolocation database; Unknown is not replaced with invented locations.
+Storefront content > Scrolling offer strip. Edit messages and optional destinations, choose speed, enable and Publish strip. Refresh the customer store to see it. Use login as a destination to open email login. This text does not change the actual discount: manage coupons separately. Free delivery still begins at INR 999 subtotal before discounts.
+
+## Customer features to check
+
+Filter by size/price/availability and clear filters; open a product and swipe or use gallery controls; check a delivery PIN; add to bag and view free-delivery progress; browse recently viewed items or clear history; login via real OTP and complete the existing test checkout. Recent history and favourites are stored in that browser, not synced across devices.
+
+## Admin mobile use
+
+Tap Sections to open the grouped menu, then choose a screen. Products & stock uses cards on narrow screens. Existing financial permissions and report exports remain unchanged.

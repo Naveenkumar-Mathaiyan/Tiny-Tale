@@ -1,15 +1,13 @@
-# Verification for v5
+# v6 verification
 
-Passed on disposable SQLite with mock email:
-- Existing OTP, CSRF, replay prevention, four simulated payment flows, discounts, checkout continuation, order numbering, size stock, restock requests, delivery/settings, stock transitions and SEO regressions.
-- Owner, Admin and Store keeper login/permissions; server denies all restricted routes for keepers; account reset/disable revokes sessions; prices/content/size configuration cannot be changed through the stock-only endpoint.
-- Gallery-only staff updates, GIF preservation, MP4 upload/range streaming, invalid media rejection, optional banner CTA validation and product destination links.
-- Real PDF and XLSX bytes for orders, inventory, restock, traffic and journey reports; date validation and IST boundary inclusion; empty datasets; Excel formula protection.
-- Multi-page PDF headings/footers; rendered PDF page inspected for layout.
-- Real DOM script loading, role-specific navigation/editor controls, campaign dashboard, optional banner controls, gallery controls, report preview/download controls and existing customer UI behavior.
-- Additive migration from v4 preserving products, prices, stocks, orders, uploaded images and coupons; repeated startup is idempotent.
-- JavaScript syntax checks and ZIP CRC/complete extraction/byte equality checks.
+Passed:
+- v6 backend suite: owner/admin/store keeper permissions, account session revocation, stock/media restrictions, real PDF/Excel bytes, IST report date boundaries, Excel formula protection; custom banner links/new-tab persistence; unsafe URL rejection; editable public offer-strip settings; validation and staff-access denial.
+- Existing v4/v5 regression suites: OTP/CSRF/replay/rate checks with mock mail, four simulated payment methods, discounts, stock by size/One Size, restock requests, order numbers and stock transitions, GIF preservation, actual MP4/range streaming, consent/analytics and SEO.
+- Additive migration from v5: products, prices, stock, orders, uploaded images and coupons preserved; repeated initialization is idempotent.
+- Frontend and real DOM checks with all new scripts loaded.
+- Local Chromium desktop/mobile checks: no uncaught JavaScript errors or document overflow; filters/reset; recently viewed; product PIN estimate; shipping progress; mock email OTP -> UPI test checkout; offer-strip admin save -> customer refresh; custom banner product link; gallery thumbnails/arrows; PDF/Excel controls; restricted store keeper menus; reduced-motion behaviour.
+- Desktop and mobile screenshots visually reviewed. PDF layout was verified in v5 and report exports remain covered by v6 backend tests.
+- JavaScript syntax, ZIP CRC, full extraction and byte equality.
 
-Limits: no visual browser test (Chromium download truncated), no live Render/PostgreSQL or Brevo delivery test, and no Windows execution of updater. The PDF layout was rendered and inspected. Payments remain simulated. Country/state remains Unknown unless your optional IP-location database is configured. A configured shared database is required to synchronize both services.
-
-Recommended deployment checks: log in as owner, create a Store keeper, verify restricted menus and edits, update stock and view the customer size availability, reorder media, publish a media-only banner and a product-linked banner, generate/download each report, and retest customer OTP/checkout.
+Limits:
+Local browser testing uses a disposable SQLite database and mock mail outside the release app. Live Render/PostgreSQL and real Brevo email delivery have not been tested by this build environment. Windows updater is inspected but not executed on Windows. Payment methods remain simulated. Country/state depends on your optional IP-location database. Delivery estimates are indicative, not carrier-verified.
